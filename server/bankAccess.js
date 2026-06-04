@@ -1,6 +1,6 @@
 import { hasActiveSubscription } from './billing.js'
 
-export const FREE_BANK_QUESTION_LIMIT = 40
+export const FREE_BANK_QUESTION_LIMIT = 0
 export const DEFAULT_PRACTICE_PACK = '2026-practice'
 
 export function getFreeBankQuestionIds(db, packId = DEFAULT_PRACTICE_PACK) {
@@ -47,7 +47,7 @@ export function getBankAccessMeta(db, userRow) {
     totalQuestions,
     accessibleCount,
     bankPath: '/study/practice',
-    bankLabel: isPremium ? 'Full question bank' : '40 real exam questions',
+    bankLabel: isPremium ? 'Full question bank' : 'Trial payment required',
   }
 }
 

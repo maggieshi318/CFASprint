@@ -56,7 +56,7 @@ export default function App() {
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
-          <Route path="/payment/full-access" element={<PaymentPage />} />
+          <Route path="/payment/:planId" element={<PaymentPage />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route element={<UserCenterLayout />}>

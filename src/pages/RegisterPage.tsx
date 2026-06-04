@@ -9,6 +9,7 @@ export default function RegisterPage() {
   const { login, refreshUser } = useAuth()
   const fromState = (location.state as { from?: string } | null)?.from
   const redirectTo = fromState?.startsWith('/') ? fromState : '/onboarding'
+  const referralCode = new URLSearchParams(location.search).get('ref')?.trim() || ''
   const [name, setName] = useState('New Candidate')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -22,7 +23,7 @@ export default function RegisterPage() {
     setVerifyHint('')
     setLoading(true)
     try {
-      const result = await registerAccount({ name, email, password })
+      const result = await registerAccount({ name, email, password, referralCode })
       await login(email, password)
       if (result.dev?.verifyUrl) {
         setVerifyHint(`Dev verify link: ${result.dev.verifyUrl}`)
@@ -56,6 +57,7 @@ export default function RegisterPage() {
       <form className="login-card" onSubmit={handleSubmit}>
         <h2>Create account</h2>
         <p>Start your CFA Level I prep journey.</p>
+        {referralCode ? <p className="helper-text">Referral code applied: {referralCode}</p> : null}
         <label>
           Name
           <input value={name} onChange={(e) => setName(e.target.value)} />

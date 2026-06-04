@@ -9,10 +9,9 @@ type AnalyticsWithPush = AdminAnalytics & {
 const STAGE_LABELS: Record<string, string> = {
   registered: 'Registered only',
   started_practice: 'Started practice',
-  hit_free_daily_limit: 'Hit free daily limit',
-  used_free_bank: 'Used free bank',
+  needs_trial_payment: 'Needs AED 9.9 trial payment',
   completed_mock: 'Completed mock',
-  paid: 'Paid Full Access',
+  paid: 'Paid access',
 }
 
 function shortDate(value: string | null | undefined) {
@@ -37,6 +36,7 @@ export default function AdminAnalyticsPage() {
     (analytics.planBreakdown.paid_lifetime || 0) +
     (analytics.planBreakdown.pro_quarterly || 0) +
     (analytics.planBreakdown.pass_pack || 0)
+  const trialCount = analytics.planBreakdown.trial_monthly || 0
 
   return (
     <section className="panel merchant-dashboard">
@@ -59,8 +59,12 @@ export default function AdminAnalyticsPage() {
           <p>Paid Full Access</p>
         </article>
         <article>
-          <h3>{analytics.totals.candidatesWithSubmittedMocks}</h3>
-          <p>Completed mock</p>
+          <h3>{trialCount}</h3>
+          <p>Trial users</p>
+        </article>
+        <article>
+          <h3>{analytics.totals.referralRewards || 0}</h3>
+          <p>Referral rewards</p>
         </article>
       </div>
 
@@ -166,7 +170,7 @@ export default function AdminAnalyticsPage() {
                     <span className="muted-cell">{candidate.email}</span>
                   </td>
                   <td>{STAGE_LABELS[candidate.stage] || candidate.stage}</td>
-                  <td>{candidate.isPremium ? 'Full Access' : 'Free Trial'}</td>
+                  <td>{candidate.isPremium ? (candidate.plan === 'trial_monthly' ? '1-Month Trial' : 'Full Access') : 'Account Only'}</td>
                   <td>{candidate.answeredQuestions}</td>
                   <td>{candidate.accuracy}%</td>
                   <td>{candidate.completionPct}%</td>

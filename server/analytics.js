@@ -14,7 +14,7 @@ function dailySeries(db, sql, days = 7) {
 export function buildAdminAnalytics(db) {
   const users = db
     .prepare(
-      'SELECT id, name, email, role, plan, subscription_status, subscription_expires_at, email_verified, created_at FROM users',
+      'SELECT id, name, email, role, plan, subscription_status, subscription_expires_at, email_verified, created_at, referred_by_user_id FROM users',
     )
     .all()
 
@@ -29,7 +29,7 @@ export function buildAdminAnalytics(db) {
       acc[key] = (acc[key] || 0) + 1
       return acc
     },
-    { free: 0, paid_lifetime: 0 },
+    { free: 0, trial_monthly: 0, paid_lifetime: 0 },
   )
 
   const submissionAgg = db
@@ -88,7 +88,7 @@ export function buildAdminAnalytics(db) {
               FROM submissions s
               WHERE s.user_id = u.id
             ) >= CASE
-              WHEN u.plan = 'paid_lifetime'
+              WHEN u.plan IN ('trial_monthly', 'paid_lifetime')
                    AND u.subscription_status = 'active'
                    AND (u.subscription_expires_at IS NULL OR datetime(u.subscription_expires_at) > datetime('now'))
                 THEN (SELECT COUNT(*) FROM questions)
@@ -109,6 +109,7 @@ export function buildAdminAnalytics(db) {
   const conversionRate = students.length > 0 ? Math.round((premiumUsers / students.length) * 100) : 0
   const mockCompletionRate = mockAgg.started > 0 ? Math.round((mockAgg.submitted / mockAgg.started) * 100) : 0
   const fullBankSize = db.prepare('SELECT COUNT(*) AS count FROM questions').get().count
+  const referralRewards = db.prepare('SELECT COUNT(*) AS count FROM referral_rewards').get().count
 
   const candidateDetails = db
     .prepare(
@@ -121,6 +122,7 @@ export function buildAdminAnalytics(db) {
         u.subscription_status AS subscriptionStatus,
         u.subscription_expires_at AS subscriptionExpiresAt,
         u.email_verified AS emailVerified,
+        u.referred_by_user_id AS referredByUserId,
         u.created_at AS createdAt,
         (SELECT COUNT(DISTINCT s.question_id) FROM submissions s WHERE s.user_id = u.id) AS answeredQuestions,
         (SELECT COUNT(*) FROM submissions s WHERE s.user_id = u.id AND s.correct = 1) AS correctAnswers,
@@ -141,7 +143,7 @@ export function buildAdminAnalytics(db) {
     .all()
     .map((row) => {
       const activePaid =
-        row.plan === 'paid_lifetime' &&
+        (row.plan === 'trial_monthly' || row.plan === 'paid_lifetime') &&
         row.subscriptionStatus === 'active' &&
         (!row.subscriptionExpiresAt || new Date(row.subscriptionExpiresAt).getTime() > Date.now())
       const answered = Number(row.answeredQuestions || 0)
@@ -152,16 +154,16 @@ export function buildAdminAnalytics(db) {
       const completionPct = accessibleQuestions > 0 ? Math.min(100, Math.round((answered / accessibleQuestions) * 100)) : 0
       let stage = 'registered'
       if (answered > 0) stage = 'started_practice'
-      if (!activePaid && answered >= 20) stage = 'hit_free_daily_limit'
-      if (!activePaid && answered >= 40) stage = 'used_free_bank'
+      if (!activePaid) stage = 'needs_trial_payment'
       if (mockSubmitted > 0) stage = 'completed_mock'
       if (activePaid) stage = 'paid'
       return {
         id: row.id,
         name: row.name,
         email: row.email,
-        plan: activePaid ? 'paid_lifetime' : 'free',
+        plan: activePaid ? row.plan : 'free',
         isPremium: activePaid,
+        referredByUserId: row.referredByUserId || null,
         emailVerified: Boolean(row.emailVerified),
         createdAt: row.createdAt,
         answeredQuestions: answered,
@@ -181,9 +183,9 @@ export function buildAdminAnalytics(db) {
     { stage: 'Registered', count: students.length },
     { stage: 'Verified email', count: verifiedUsers },
     { stage: 'Started practice', count: candidatesWithSubmissions },
-    { stage: 'Hit free 20-question daily limit', count: candidateDetails.filter((item) => item.answeredQuestions >= 20 && !item.isPremium).length },
+    { stage: 'Needs AED 9.9 trial payment', count: candidateDetails.filter((item) => !item.isPremium).length },
     { stage: 'Completed a mock', count: candidatesWithSubmittedMocks },
-    { stage: 'Paid Full Access', count: premiumUsers },
+    { stage: 'Trial or Full Access active', count: premiumUsers },
   ]
 
   const topicEngagement = db
@@ -226,6 +228,7 @@ export function buildAdminAnalytics(db) {
       mockSubmitted: mockAgg.submitted || 0,
       candidatesWithSubmittedMocks,
       avgMockScore: mockAgg.avgScore ? Math.round(mockAgg.avgScore) : 0,
+      referralRewards,
     },
     rates: {
       premiumConversionPct: conversionRate,

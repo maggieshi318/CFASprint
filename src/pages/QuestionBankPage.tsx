@@ -23,7 +23,7 @@ function buildFallbackMeta(isPremium: boolean): QuestionBankMeta {
   return {
     bankMode: isPremium ? 'full' : 'free',
     isPremium,
-    totalAccessible: isPremium ? 42 : 40,
+    totalAccessible: isPremium ? 42 : 0,
     fullBankSize: 42,
     packs: [
       {
@@ -190,7 +190,7 @@ export default function QuestionBankPage() {
 
   const freeNotice = useMemo(() => {
     if (!meta.isPremium) {
-      return `Free trial: ${meta.totalAccessible} of ${meta.fullBankSize} questions unlocked. Upgrade to unlock every pack, mock exam, and unlimited daily practice.`
+      return `Start the AED 9.9 trial to unlock all ${meta.fullBankSize} questions for one month. Continue with AED 99 Full Access after the trial.`
     }
     return null
   }, [meta])
@@ -205,8 +205,8 @@ export default function QuestionBankPage() {
         {freeNotice ? (
           <div className="free-bank-notice free-bank-notice-action">
             <span>{freeNotice}</span>
-            <UpgradeButton className="upgrade-inline-btn" source="/study/practice">
-              Upgrade - AED 99
+            <UpgradeButton className="upgrade-inline-btn" planId="trial_monthly" source="/study/practice">
+              Start trial - AED 9.9
             </UpgradeButton>
           </div>
         ) : null}
@@ -237,9 +237,9 @@ export default function QuestionBankPage() {
                 {expanded && pack.locked ? (
                   <div className="qb-row qb-locked-row">
                     <span className="qb-doc-icon" aria-hidden="true" />
-                    <span className="qb-topic-title">This pack is locked in the free trial</span>
-                    <UpgradeButton className="qb-action-btn qb-upgrade-btn" source="/study/practice">
-                      Unlock now
+                    <span className="qb-topic-title">This pack unlocks during the AED 9.9 trial month</span>
+                    <UpgradeButton className="qb-action-btn qb-upgrade-btn" planId="trial_monthly" source="/study/practice">
+                      Start trial
                     </UpgradeButton>
                   </div>
                 ) : null}

@@ -1,5 +1,6 @@
 const PLAN_NAMES = {
   free: 'Free',
+  trial_monthly: '1-Month Trial',
   paid_lifetime: 'Full Access',
   pro_quarterly: 'Full Access',
   pass_pack: 'Full Access',
@@ -7,6 +8,7 @@ const PLAN_NAMES = {
 
 const PLAN_PRICES = {
   free: '$0',
+  trial_monthly: 'AED 9.9',
   paid_lifetime: 'AED 99',
   pro_quarterly: 'AED 99',
   pass_pack: 'AED 99',

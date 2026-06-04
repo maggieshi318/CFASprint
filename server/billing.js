@@ -4,13 +4,24 @@ import { recordOrder } from './orders.js'
 
 const PLAN_META = {
   free: {
-    name: 'Free Trial',
+    name: 'Account Only',
     price: '$0',
     features: [
-      'Try real CFA Level I practice questions',
-      '20 answered questions per day',
-      'Basic statistics dashboard',
-      'Upgrade prompts when you need more',
+      'Create an account and view the product',
+      'Progress is saved after you start a paid trial',
+      'Upgrade prompts when you are ready to practice',
+    ],
+  },
+  trial_monthly: {
+    name: '1-Month Trial',
+    price: 'AED 9.9',
+    badge: 'Best first step',
+    highlighted: true,
+    features: [
+      'Full CFA Level I question bank for 30 days',
+      'Unlimited practice during the trial month',
+      'Mock exams, wrong-book, favorites, and analytics',
+      'After 30 days, continue with Full Access for AED 99',
     ],
   },
   paid_lifetime: {
@@ -31,10 +42,17 @@ const PLAN_META = {
 const PLAN_ENTITLEMENTS = {
   free: {
     bankAccess: 'starter',
-    dailyQuestionLimit: 20,
-    mockQuestionLimit: 3,
-    mockSubmissionLimit: 1,
+    dailyQuestionLimit: 0,
+    mockQuestionLimit: 0,
+    mockSubmissionLimit: 0,
     analytics: 'basic',
+  },
+  trial_monthly: {
+    bankAccess: 'full',
+    dailyQuestionLimit: null,
+    mockQuestionLimit: null,
+    mockSubmissionLimit: null,
+    analytics: 'full',
   },
   paid_lifetime: {
     bankAccess: 'full',
@@ -61,7 +79,7 @@ export function getPricingPlans() {
 }
 
 export function isPaidPlan(plan) {
-  return plan === 'paid_lifetime'
+  return plan === 'trial_monthly' || plan === 'paid_lifetime'
 }
 
 export function hasActiveSubscription(userRow) {
@@ -97,12 +115,16 @@ function getStripeClient() {
 }
 
 function getPriceId(planId) {
+  if (planId === 'trial_monthly') return config.stripePriceTrialMonthly
   if (planId === 'paid_lifetime') return config.stripePriceFullAccess || config.stripePricePassPack
   return null
 }
 
 export function activatePlan(db, userId, planId, extra = {}) {
-  const expiresAt = null
+  const expiresAt =
+    planId === 'trial_monthly'
+      ? db.prepare("SELECT datetime('now', '+30 days') AS expiresAt").get().expiresAt
+      : null
 
   db.prepare(
     `
@@ -124,6 +146,23 @@ export function activatePlan(db, userId, planId, extra = {}) {
   if (planId !== 'free') {
     recordOrder(db, userId, planId, expiresAt)
   }
+
+  if (planId === 'paid_lifetime') {
+    const buyer = db.prepare('SELECT referred_by_user_id FROM users WHERE id = ?').get(userId)
+    if (buyer?.referred_by_user_id) {
+      db.prepare(
+        `
+        INSERT OR IGNORE INTO referral_rewards
+          (referrer_user_id, referred_user_id, benefit, status, created_at)
+        VALUES (?, ?, ?, 'earned', datetime('now'))
+      `,
+      ).run(
+        buyer.referred_by_user_id,
+        userId,
+        'CFA Level II question bank 30% discount credit',
+      )
+    }
+  }
 }
 
 export async function createCheckoutSession(db, userRow, planId) {
@@ -133,12 +172,14 @@ export async function createCheckoutSession(db, userRow, planId) {
 
   const stripe = getStripeClient()
   if (!stripe) {
+    const paymentUrl =
+      planId === 'trial_monthly' ? config.trialPaymentUrl : config.fullAccessPaymentUrl
     return {
-      mode: config.fullAccessPaymentUrl ? 'payment_link' : 'payment_required',
-      url: config.fullAccessPaymentUrl || '/payment/full-access',
-      message: config.fullAccessPaymentUrl
+      mode: paymentUrl ? 'payment_link' : 'payment_required',
+      url: paymentUrl || `/payment/${planId}`,
+      message: paymentUrl
         ? 'Redirecting to payment.'
-        : 'Payment is not configured yet. Full Access will not unlock until payment is completed.',
+        : 'Payment is not configured yet. Access will not unlock until payment is completed.',
     }
   }
 

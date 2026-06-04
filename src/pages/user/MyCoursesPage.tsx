@@ -6,7 +6,8 @@ import { userCenterCopy } from '../../i18n/copy'
 import type { User } from '../../types'
 
 const PLAN_NAMES: Record<User['plan'], string> = {
-  free: 'Free Trial',
+  free: 'Account Only',
+  trial_monthly: '1-Month Trial',
   paid_lifetime: 'Full Access',
   pro_quarterly: 'Full Access',
   pass_pack: 'Full Access',
@@ -26,8 +27,8 @@ function buildFallbackCourse(user: User | null): CourseItem {
     expiresAt: user?.subscriptionExpiresAt ?? null,
     studyPath: '/study/statistics',
     bankPath: '/study/practice',
-    bankLabel: isPremium ? 'Full question bank' : 'Free trial question bank',
-    bankSize: isPremium ? 42 : 40,
+    bankLabel: isPremium ? 'Full question bank' : 'Trial payment required',
+    bankSize: isPremium ? 42 : 0,
     totalBankSize: 42,
   }
 }
@@ -42,6 +43,15 @@ function normalizeCourse(course: CourseItem): CourseItem {
 
 function featureList(course: CourseItem) {
   if (course.isPremium) {
+    if (course.plan === 'trial_monthly') {
+      return [
+        '30 days full question bank access',
+        'Full timed mock exams with score reports',
+        'Practice on desktop, tablet, and mobile',
+        'Wrong-book, favorites, and review center',
+        'Continue with AED 99 Full Access after trial',
+      ]
+    }
     return [
       '2026 official-style practice questions (full bank)',
       'Full timed mock exams with score reports',
@@ -53,22 +63,22 @@ function featureList(course: CourseItem) {
   }
 
   return [
-    '20 answered questions per day',
-    'Try the question bank before paying',
+    'Start AED 9.9 trial to unlock all questions',
+    'Trial lasts 30 days with full question bank access',
     'Practice on desktop, tablet, and mobile',
-    'Upgrade for unlimited practice',
+    'Continue with AED 99 Full Access after trial',
     'Wrong-book and favorites included',
-    'Upgrade anytime for full bank access',
+    'Referral rewards available after Full Access purchases',
   ]
 }
 
 function planAccessLabel(user: User | null, course: CourseItem) {
   const entitlements = user?.entitlements
-  if (!entitlements) return course.isPremium ? 'Full access' : 'Starter access'
+  if (!entitlements) return course.isPremium ? 'Full access' : 'Trial payment required'
   const dailyLimit = entitlements.dailyQuestionLimit == null ? 'unlimited practice' : `${entitlements.dailyQuestionLimit}/day`
   const mockLimit =
     entitlements.mockSubmissionLimit == null ? 'unlimited mocks' : `${entitlements.mockSubmissionLimit} mock`
-  return `${course.isPremium ? 'Full bank' : 'Starter bank'} | ${dailyLimit} | ${mockLimit}`
+  return `${course.isPremium ? 'Full bank' : 'Payment required'} | ${dailyLimit} | ${mockLimit}`
 }
 
 export default function MyCoursesPage() {

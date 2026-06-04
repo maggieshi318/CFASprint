@@ -463,8 +463,8 @@ export default function PracticePage() {
               <strong>Unlock unlimited practice</strong>
               <p>{upgradePrompt}</p>
             </div>
-            <UpgradeButton className="practice-upgrade-btn" source="/study/practice/session">
-              Pay AED 99 once
+            <UpgradeButton className="practice-upgrade-btn" planId="trial_monthly" source="/study/practice/session">
+              Start AED 9.9 trial
             </UpgradeButton>
           </section>
         ) : null}
@@ -672,12 +672,12 @@ export default function PracticePage() {
 
         {!user?.isPremium ? (
           <section className="practice-side-card trial-upgrade-card">
-            <h3>Free trial</h3>
+            <h3>1-month trial</h3>
             <p>
-              You can answer 20 questions per day. Unlock all packs when you are ready to keep going without limits.
+              AED 9.9 unlocks every question and mock exam for 30 days. Continue with AED 99 Full Access after the trial.
             </p>
-            <UpgradeButton className="practice-upgrade-btn full-width" source="/study/practice/session">
-              Unlock all questions
+            <UpgradeButton className="practice-upgrade-btn full-width" planId="trial_monthly" source="/study/practice/session">
+              Start trial
             </UpgradeButton>
           </section>
         ) : null}

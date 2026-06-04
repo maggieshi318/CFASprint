@@ -26,7 +26,8 @@ export type User = {
   weeklyGoal: number
   onboardingCompleted: boolean
   examDaysRemaining: number | null
-  plan: 'free' | 'paid_lifetime' | 'pro_quarterly' | 'pass_pack'
+  referralCode?: string | null
+  plan: 'free' | 'trial_monthly' | 'paid_lifetime' | 'pro_quarterly' | 'pass_pack'
   subscriptionStatus: 'inactive' | 'active' | 'past_due' | 'canceled'
   subscriptionExpiresAt: string | null
   isPremium: boolean
@@ -40,7 +41,7 @@ export type User = {
 }
 
 export type PricingPlan = {
-  planId: 'free' | 'paid_lifetime'
+  planId: 'free' | 'trial_monthly' | 'paid_lifetime'
   name: string
   price: string
   originalPrice?: string

@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import Database from 'better-sqlite3'
 import fs from 'node:fs'
+import crypto from 'node:crypto'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { config } from './config.js'
@@ -189,6 +190,16 @@ CREATE TABLE IF NOT EXISTS user_messages (
   created_at TEXT NOT NULL,
   replied_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS referral_rewards (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  referrer_user_id INTEGER NOT NULL,
+  referred_user_id INTEGER NOT NULL,
+  benefit TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'earned',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(referrer_user_id, referred_user_id)
+);
 `)
 
 function ensureColumn(tableName, columnName, columnSql) {
@@ -225,6 +236,8 @@ db.prepare("UPDATE users SET reminder_time = '20:00' WHERE reminder_time IS NULL
 ensureColumn('users', 'exam_date', 'TEXT')
 ensureColumn('users', 'weekly_goal', 'INTEGER DEFAULT 50')
 ensureColumn('users', 'onboarding_completed', 'INTEGER DEFAULT 0')
+ensureColumn('users', 'referral_code', 'TEXT')
+ensureColumn('users', 'referred_by_user_id', 'INTEGER')
 
 db.prepare('UPDATE users SET weekly_goal = 50 WHERE weekly_goal IS NULL').run()
 db.prepare('UPDATE users SET onboarding_completed = 1 WHERE email IN (?, ?)').run(
@@ -236,6 +249,9 @@ db.prepare("UPDATE users SET exam_date = '2026-11-11' WHERE email IN (?, ?)").ru
   'admin@example.com',
 )
 db.prepare("UPDATE users SET exam_date = '2026-11-11' WHERE exam_date IS NULL OR exam_date = ''").run()
+db.prepare(
+  "UPDATE users SET referral_code = lower(hex(randomblob(4))) WHERE referral_code IS NULL OR referral_code = ''",
+).run()
 
 db.prepare('UPDATE users SET email_verified = 1 WHERE email IN (?, ?)').run(
   'candidate@example.com',
@@ -277,6 +293,10 @@ for (const email of ['candidate@example.com', 'admin@example.com']) {
   }
 }
 
+db.prepare(
+  "UPDATE users SET referral_code = lower(hex(randomblob(4))) WHERE referral_code IS NULL OR referral_code = ''",
+).run()
+
 db.prepare('UPDATE users SET locale = ? WHERE locale NOT IN (?, ?)').run('en', 'en', 'zh')
 
 function getUserRow(userId) {
@@ -298,8 +318,18 @@ function serializeUser(userRow) {
     weeklyGoal: userRow.weekly_goal || 50,
     onboardingCompleted: Boolean(userRow.onboarding_completed),
     examDaysRemaining: getExamCountdown(userRow.exam_date),
+    referralCode: userRow.referral_code || null,
     ...getSubscriptionSnapshot(userRow),
   }
+}
+
+function createReferralCode() {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const code = crypto.randomBytes(4).toString('hex')
+    const exists = db.prepare('SELECT id FROM users WHERE referral_code = ?').get(code)
+    if (!exists) return code
+  }
+  return `${Date.now().toString(36)}${crypto.randomBytes(2).toString('hex')}`
 }
 
 async function deliverAuthEmail(userRow, subject, actionUrl, actionLabel) {
@@ -337,7 +367,7 @@ function getPlanLimitBlockReason(userId, action, payload = {}) {
       )
       .get(userId).count
     if (todayCount >= entitlements.dailyQuestionLimit) {
-      return `Daily ${userRow.plan || 'free'} limit reached (${entitlements.dailyQuestionLimit} questions). Upgrade on the Pricing page for unlimited practice.`
+      return 'Start the AED 9.9 trial to unlock the full question bank for one month.'
     }
   }
 
@@ -355,13 +385,13 @@ function getPlanLimitBlockReason(userId, action, payload = {}) {
       entitlements.mockSubmissionLimit != null &&
       submittedMocks >= entitlements.mockSubmissionLimit
     ) {
-      return `${userRow.plan || 'Free'} plan includes ${entitlements.mockSubmissionLimit} mock submission${entitlements.mockSubmissionLimit === 1 ? '' : 's'}. Upgrade for more mock exams.`
+      return 'Start the AED 9.9 trial to unlock mock exams.'
     }
     if (
       entitlements.mockQuestionLimit != null &&
       requestedQuestionCount > entitlements.mockQuestionLimit
     ) {
-      return `Free plan mock exams are limited to ${entitlements.mockQuestionLimit} questions. Upgrade to unlock full mock exams.`
+      return 'Start the AED 9.9 trial to unlock full mock exams.'
     }
   }
 
@@ -471,17 +501,31 @@ app.post('/api/auth/login', (req, res) => {
 })
 
 app.post('/api/auth/register', async (req, res) => {
-  const { name, email, password } = req.body || {}
+  const { name, email, password, referralCode } = req.body || {}
   if (!name || !email || !password) {
     return res.status(400).json({ message: 'Name, email, and password are required' })
   }
   const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(email)
   if (exists) return res.status(409).json({ message: 'Email is already registered' })
 
+  const normalizedReferral = String(referralCode || '').trim().toLowerCase()
+  const referrer = normalizedReferral
+    ? db.prepare('SELECT id FROM users WHERE lower(referral_code) = ? OR lower(email) = ?').get(
+        normalizedReferral,
+        normalizedReferral,
+      )
+    : null
   const passwordHash = bcrypt.hashSync(password, 10)
+  const newReferralCode = createReferralCode()
   const result = db
-    .prepare('INSERT INTO users (name, email, role, locale, password_hash) VALUES (?, ?, ?, ?, ?)')
-    .run(name, email, 'student', 'en', passwordHash)
+    .prepare(
+      `
+      INSERT INTO users
+        (name, email, role, locale, password_hash, referral_code, referred_by_user_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    )
+    .run(name, email, 'student', 'en', passwordHash, newReferralCode, referrer?.id || null)
   const user = getUserRow(result.lastInsertRowid)
   const token = issueToken(user)
   const verification = issueAuthAction(db, user, 'verify', config.appUrl, '/verify-email')
@@ -1084,7 +1128,8 @@ app.get('/api/courses', authMiddleware, (req, res) => {
   const snapshot = getSubscriptionSnapshot(user)
   const bank = getBankAccessMeta(db, user)
   const planNames = {
-    free: 'Free Trial',
+    free: 'Account Only',
+    trial_monthly: '1-Month Trial',
     paid_lifetime: 'Full Access',
     pro_quarterly: 'Full Access',
     pass_pack: 'Full Access',
@@ -1093,7 +1138,7 @@ app.get('/api/courses', authMiddleware, (req, res) => {
     {
       id: 'cfa-l1-2026',
       title: 'CFA Level I Question Bank 2026',
-      subtitle: 'Practice bank · timed mocks · sprint plan · review center',
+      subtitle: 'Practice bank | timed mocks | sprint plan | review center',
       plan: snapshot.plan,
       planName: planNames[snapshot.plan] || snapshot.plan,
       isPremium: snapshot.isPremium,
@@ -1321,3 +1366,4 @@ app.listen(config.port, () => {
   // eslint-disable-next-line no-console
   console.log(`CFA Sprint server running at http://localhost:${config.port} (${config.nodeEnv})`)
 })
+

@@ -183,6 +183,7 @@ export async function registerAccount(payload: {
   name: string
   email: string
   password: string
+  referralCode?: string
 }): Promise<{ token: string; user: User; dev?: { verifyUrl?: string; devToken?: string } }> {
   return apiRequest('/auth/register', {
     method: 'POST',
@@ -258,7 +259,7 @@ export async function fetchBillingStatus(token: string): Promise<{
 
 export async function startCheckout(
   token: string,
-  planId: 'paid_lifetime',
+  planId: 'trial_monthly' | 'paid_lifetime',
 ): Promise<{
   mode: 'stripe' | 'payment_link' | 'payment_required'
   url?: string
@@ -425,6 +426,7 @@ export type AdminAnalytics = {
     mockSubmitted: number
     candidatesWithSubmittedMocks: number
     avgMockScore: number
+    referralRewards: number
   }
   rates: {
     premiumConversionPct: number
@@ -451,6 +453,7 @@ export type AdminAnalytics = {
     email: string
     plan: string
     isPremium: boolean
+    referredByUserId: number | null
     emailVerified: boolean
     createdAt: string
     answeredQuestions: number

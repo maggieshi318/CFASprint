@@ -6,12 +6,14 @@ import { useAuth } from '../auth/AuthContext'
 type UpgradeButtonProps = {
   className?: string
   children?: string
+  planId?: 'trial_monthly' | 'paid_lifetime'
   source?: string
 }
 
 export default function UpgradeButton({
   className = 'primary-btn',
   children = 'Unlock Full Access - AED 99',
+  planId = 'paid_lifetime',
   source = '/pricing',
 }: UpgradeButtonProps) {
   const { token, user } = useAuth()
@@ -27,7 +29,7 @@ export default function UpgradeButton({
 
     setLoading(true)
     try {
-      const result = await startCheckout(token, 'paid_lifetime')
+      const result = await startCheckout(token, planId)
       if (result.url) {
         window.location.assign(result.url)
         return
@@ -42,7 +44,7 @@ export default function UpgradeButton({
 
   return (
     <button type="button" className={className} disabled={loading || user?.isPremium} onClick={handleUpgrade}>
-      {user?.isPremium ? 'Full Access Active' : loading ? 'Opening payment...' : children}
+      {user?.isPremium ? 'Access Active' : loading ? 'Opening payment...' : children}
     </button>
   )
 }

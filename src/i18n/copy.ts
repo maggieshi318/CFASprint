@@ -100,13 +100,13 @@ const en = {
       planLabel: 'Plan',
       expiresLabel: 'Expires',
       activeStatus: 'Status: Active',
-      freeStatus: 'Status: Free tier',
+      freeStatus: 'Status: Trial payment required',
       startLearning: 'Start Learning',
       upgrade: 'Upgrade plan',
       bankSizeHint: (accessible: number, total: number, isPremium: boolean) =>
         isPremium
           ? `${accessible} questions in full bank`
-          : `${accessible} of ${total} real exam questions (free tier)`,
+          : `Start AED 9.9 trial to unlock ${total} real exam questions`,
       noOrders: 'No orders yet.',
       browsePlans: 'Browse plans',
       orderId: 'Order',
@@ -228,13 +228,13 @@ const zh: typeof en = {
       planLabel: 'Plan',
       expiresLabel: 'Expires',
       activeStatus: 'Status: Active',
-      freeStatus: 'Status: Free tier',
+      freeStatus: 'Status: Trial payment required',
       startLearning: 'Start Learning',
       upgrade: 'Upgrade plan',
       bankSizeHint: (accessible: number, total: number, isPremium: boolean) =>
         isPremium
           ? `${accessible} questions in full bank`
-          : `${accessible} of ${total} real exam questions (free tier)`,
+          : `Start AED 9.9 trial to unlock ${total} real exam questions`,
       noOrders: 'No orders yet.',
       browsePlans: 'Browse plans',
       orderId: 'Order',
