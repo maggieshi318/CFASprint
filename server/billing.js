@@ -13,28 +13,39 @@ const PLAN_META = {
     ],
   },
   trial_monthly: {
-    name: '1-Month Trial',
+    name: '7-Day Trial',
     price: 'AED 9.9',
     badge: 'Best first step',
     highlighted: true,
     features: [
-      'Full CFA Level I question bank for 30 days',
-      'Unlimited practice during the trial month',
+      'Full CFA Level I question bank for 7 days',
+      'Unlimited practice during the trial week',
       'Mock exams, wrong-book, favorites, and analytics',
-      'After 30 days, continue with Full Access for AED 99',
+      'After 7 days, continue with Early Bird Full Access for AED 99',
     ],
   },
   paid_lifetime: {
-    name: 'Full Access',
+    name: 'Early Bird Full Access',
     price: 'AED 99',
-    originalPrice: 'AED 188',
-    badge: 'Limited-time 50% off',
+    originalPrice: 'AED 199',
+    badge: 'Early bird price',
     highlighted: true,
     features: [
       'Full Level I question bank',
       'Unlimited daily practice',
       'Wrong-book, favorites, and analytics',
       'Full mock exam mode',
+    ],
+  },
+  community_sprint: {
+    name: 'Sprint Community Plan',
+    price: 'AED 299',
+    badge: 'Most accountable',
+    features: [
+      'Everything in Full Access',
+      'Community supervision and study check-ins',
+      'Shared weekly learning content',
+      'Best for candidates who need accountability',
     ],
   },
 }
@@ -61,6 +72,13 @@ const PLAN_ENTITLEMENTS = {
     mockSubmissionLimit: null,
     analytics: 'full',
   },
+  community_sprint: {
+    bankAccess: 'full',
+    dailyQuestionLimit: null,
+    mockQuestionLimit: null,
+    mockSubmissionLimit: null,
+    analytics: 'full',
+  },
   admin: {
     bankAccess: 'full',
     dailyQuestionLimit: null,
@@ -79,7 +97,7 @@ export function getPricingPlans() {
 }
 
 export function isPaidPlan(plan) {
-  return plan === 'trial_monthly' || plan === 'paid_lifetime'
+  return plan === 'trial_monthly' || plan === 'paid_lifetime' || plan === 'community_sprint'
 }
 
 export function hasActiveSubscription(userRow) {
@@ -117,13 +135,14 @@ function getStripeClient() {
 function getPriceId(planId) {
   if (planId === 'trial_monthly') return config.stripePriceTrialMonthly
   if (planId === 'paid_lifetime') return config.stripePriceFullAccess || config.stripePricePassPack
+  if (planId === 'community_sprint') return config.stripePriceCommunitySprint
   return null
 }
 
 export function activatePlan(db, userId, planId, extra = {}) {
   const expiresAt =
     planId === 'trial_monthly'
-      ? db.prepare("SELECT datetime('now', '+30 days') AS expiresAt").get().expiresAt
+      ? db.prepare("SELECT datetime('now', '+7 days') AS expiresAt").get().expiresAt
       : null
 
   db.prepare(
@@ -147,7 +166,7 @@ export function activatePlan(db, userId, planId, extra = {}) {
     recordOrder(db, userId, planId, expiresAt)
   }
 
-  if (planId === 'paid_lifetime') {
+  if (planId === 'paid_lifetime' || planId === 'community_sprint') {
     const buyer = db.prepare('SELECT referred_by_user_id FROM users WHERE id = ?').get(userId)
     if (buyer?.referred_by_user_id) {
       db.prepare(
@@ -173,7 +192,11 @@ export async function createCheckoutSession(db, userRow, planId) {
   const stripe = getStripeClient()
   if (!stripe) {
     const paymentUrl =
-      planId === 'trial_monthly' ? config.trialPaymentUrl : config.fullAccessPaymentUrl
+      planId === 'trial_monthly'
+        ? config.trialPaymentUrl
+        : planId === 'community_sprint'
+          ? config.communityPaymentUrl
+          : config.fullAccessPaymentUrl
     return {
       mode: paymentUrl ? 'payment_link' : 'payment_required',
       url: paymentUrl || `/payment/${planId}`,

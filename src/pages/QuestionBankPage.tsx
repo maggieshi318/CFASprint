@@ -190,7 +190,7 @@ export default function QuestionBankPage() {
 
   const freeNotice = useMemo(() => {
     if (!meta.isPremium) {
-      return `Start the AED 9.9 trial to unlock all ${meta.fullBankSize} questions for one month. Continue with AED 99 Full Access after the trial.`
+      return `Start the AED 9.9 trial to unlock all ${meta.fullBankSize} questions for 7 days. Continue with AED 99 Early Bird Full Access after the trial.`
     }
     return null
   }, [meta])
@@ -237,7 +237,7 @@ export default function QuestionBankPage() {
                 {expanded && pack.locked ? (
                   <div className="qb-row qb-locked-row">
                     <span className="qb-doc-icon" aria-hidden="true" />
-                    <span className="qb-topic-title">This pack unlocks during the AED 9.9 trial month</span>
+                    <span className="qb-topic-title">This pack unlocks during the AED 9.9 trial week</span>
                     <UpgradeButton className="qb-action-btn qb-upgrade-btn" planId="trial_monthly" source="/study/practice">
                       Start trial
                     </UpgradeButton>

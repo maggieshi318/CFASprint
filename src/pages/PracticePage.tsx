@@ -672,9 +672,9 @@ export default function PracticePage() {
 
         {!user?.isPremium ? (
           <section className="practice-side-card trial-upgrade-card">
-            <h3>1-month trial</h3>
+            <h3>7-day trial</h3>
             <p>
-              AED 9.9 unlocks every question and mock exam for 30 days. Continue with AED 99 Full Access after the trial.
+              AED 9.9 unlocks every question and mock exam for 7 days. Continue with AED 99 Early Bird Full Access after the trial.
             </p>
             <UpgradeButton className="practice-upgrade-btn full-width" planId="trial_monthly" source="/study/practice/session">
               Start trial

@@ -170,7 +170,15 @@ export default function AdminAnalyticsPage() {
                     <span className="muted-cell">{candidate.email}</span>
                   </td>
                   <td>{STAGE_LABELS[candidate.stage] || candidate.stage}</td>
-                  <td>{candidate.isPremium ? (candidate.plan === 'trial_monthly' ? '1-Month Trial' : 'Full Access') : 'Account Only'}</td>
+                  <td>
+                    {candidate.isPremium
+                      ? candidate.plan === 'trial_monthly'
+                        ? '7-Day Trial'
+                        : candidate.plan === 'community_sprint'
+                          ? 'Sprint Community Plan'
+                          : 'Early Bird Full Access'
+                      : 'Account Only'}
+                  </td>
                   <td>{candidate.answeredQuestions}</td>
                   <td>{candidate.accuracy}%</td>
                   <td>{candidate.completionPct}%</td>

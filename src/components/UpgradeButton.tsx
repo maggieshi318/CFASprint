@@ -6,7 +6,7 @@ import { useAuth } from '../auth/AuthContext'
 type UpgradeButtonProps = {
   className?: string
   children?: string
-  planId?: 'trial_monthly' | 'paid_lifetime'
+  planId?: 'trial_monthly' | 'paid_lifetime' | 'community_sprint'
   source?: string
 }
 

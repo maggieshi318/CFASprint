@@ -29,7 +29,7 @@ export function buildAdminAnalytics(db) {
       acc[key] = (acc[key] || 0) + 1
       return acc
     },
-    { free: 0, trial_monthly: 0, paid_lifetime: 0 },
+    { free: 0, trial_monthly: 0, paid_lifetime: 0, community_sprint: 0 },
   )
 
   const submissionAgg = db
@@ -88,7 +88,7 @@ export function buildAdminAnalytics(db) {
               FROM submissions s
               WHERE s.user_id = u.id
             ) >= CASE
-              WHEN u.plan IN ('trial_monthly', 'paid_lifetime')
+              WHEN u.plan IN ('trial_monthly', 'paid_lifetime', 'community_sprint')
                    AND u.subscription_status = 'active'
                    AND (u.subscription_expires_at IS NULL OR datetime(u.subscription_expires_at) > datetime('now'))
                 THEN (SELECT COUNT(*) FROM questions)
@@ -143,7 +143,7 @@ export function buildAdminAnalytics(db) {
     .all()
     .map((row) => {
       const activePaid =
-        (row.plan === 'trial_monthly' || row.plan === 'paid_lifetime') &&
+        (row.plan === 'trial_monthly' || row.plan === 'paid_lifetime' || row.plan === 'community_sprint') &&
         row.subscriptionStatus === 'active' &&
         (!row.subscriptionExpiresAt || new Date(row.subscriptionExpiresAt).getTime() > Date.now())
       const answered = Number(row.answeredQuestions || 0)

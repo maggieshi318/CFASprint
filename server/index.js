@@ -367,7 +367,7 @@ function getPlanLimitBlockReason(userId, action, payload = {}) {
       )
       .get(userId).count
     if (todayCount >= entitlements.dailyQuestionLimit) {
-      return 'Start the AED 9.9 trial to unlock the full question bank for one month.'
+      return 'Start the AED 9.9 trial to unlock the full question bank for 7 days.'
     }
   }
 
@@ -1129,8 +1129,9 @@ app.get('/api/courses', authMiddleware, (req, res) => {
   const bank = getBankAccessMeta(db, user)
   const planNames = {
     free: 'Account Only',
-    trial_monthly: '1-Month Trial',
-    paid_lifetime: 'Full Access',
+    trial_monthly: '7-Day Trial',
+    paid_lifetime: 'Early Bird Full Access',
+    community_sprint: 'Sprint Community Plan',
     pro_quarterly: 'Full Access',
     pass_pack: 'Full Access',
   }

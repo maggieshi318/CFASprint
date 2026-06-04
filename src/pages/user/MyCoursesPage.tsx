@@ -7,8 +7,9 @@ import type { User } from '../../types'
 
 const PLAN_NAMES: Record<User['plan'], string> = {
   free: 'Account Only',
-  trial_monthly: '1-Month Trial',
-  paid_lifetime: 'Full Access',
+  trial_monthly: '7-Day Trial',
+  paid_lifetime: 'Early Bird Full Access',
+  community_sprint: 'Sprint Community Plan',
   pro_quarterly: 'Full Access',
   pass_pack: 'Full Access',
 }
@@ -45,11 +46,11 @@ function featureList(course: CourseItem) {
   if (course.isPremium) {
     if (course.plan === 'trial_monthly') {
       return [
-        '30 days full question bank access',
+        '7 days full question bank access',
         'Full timed mock exams with score reports',
         'Practice on desktop, tablet, and mobile',
         'Wrong-book, favorites, and review center',
-        'Continue with AED 99 Full Access after trial',
+        'Continue with AED 99 Early Bird Full Access after trial',
       ]
     }
     return [
@@ -64,7 +65,7 @@ function featureList(course: CourseItem) {
 
   return [
     'Start AED 9.9 trial to unlock all questions',
-    'Trial lasts 30 days with full question bank access',
+    'Trial lasts 7 days with full question bank access',
     'Practice on desktop, tablet, and mobile',
     'Continue with AED 99 Full Access after trial',
     'Wrong-book and favorites included',

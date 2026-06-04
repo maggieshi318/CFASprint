@@ -259,7 +259,7 @@ export async function fetchBillingStatus(token: string): Promise<{
 
 export async function startCheckout(
   token: string,
-  planId: 'trial_monthly' | 'paid_lifetime',
+  planId: 'trial_monthly' | 'paid_lifetime' | 'community_sprint',
 ): Promise<{
   mode: 'stripe' | 'payment_link' | 'payment_required'
   url?: string
