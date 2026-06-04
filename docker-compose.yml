@@ -1,0 +1,16 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${PORT:-8787}:8787"
+    environment:
+      NODE_ENV: production
+      PORT: 8787
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_production}
+      DB_PATH: /app/server/data/cfa.db
+    volumes:
+      - cfa_data:/app/server/data
+    restart: unless-stopped
+
+volumes:
+  cfa_data:

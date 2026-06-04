@@ -1,0 +1,46 @@
+services:
+  app:
+    build: .
+    expose:
+      - "8787"
+    environment:
+      NODE_ENV: production
+      PORT: 8787
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      DB_PATH: /app/server/data/cfa.db
+      APP_URL: ${APP_URL:?set APP_URL in .env}
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_FULL_ACCESS: ${STRIPE_PRICE_FULL_ACCESS:-}
+      FULL_ACCESS_PAYMENT_URL: ${FULL_ACCESS_PAYMENT_URL:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+    volumes:
+      - cfa_data:/app/server/data
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  cfa_data:
+  caddy_data:
+  caddy_config:

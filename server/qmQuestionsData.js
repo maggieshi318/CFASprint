@@ -1,0 +1,756 @@
+const TOPIC = 'Quantitative Methods'
+const YEAR = 2026
+const TAGS = 'quantitative-methods|practice-pack'
+
+function q(los, stem, optionA, optionB, optionC, answer, explanation, difficulty = 'Medium') {
+  return {
+    topic: TOPIC,
+    los,
+    examYear: YEAR,
+    tags: TAGS,
+    difficulty,
+    stem,
+    optionA,
+    optionB,
+    optionC,
+    answer,
+    explanation,
+  }
+}
+
+function buildTvmQuestions() {
+  const specs = [
+    [1000, 3, 5, 'B'],
+    [2000, 4, 6, 'B'],
+    [500, 2, 8, 'B'],
+    [1500, 5, 4, 'B'],
+    [800, 3, 10, 'B'],
+    [2500, 6, 7, 'B'],
+    [1200, 2, 9, 'B'],
+    [3000, 4, 5, 'B'],
+    [750, 3, 12, 'B'],
+    [1800, 5, 6, 'B'],
+  ]
+  return specs.map(([pv, years, rate, answer], index) => {
+    const fv = Math.round(pv * (1 + rate / 100) ** years)
+    return q(
+      'Reading 2',
+      `An investment of $${pv.toLocaleString()} grows to $${fv.toLocaleString()} in ${years} years with annual compounding. The annual rate of return is closest to:`,
+      `${rate - 1}%`,
+      `${rate}%`,
+      `${rate + 2}%`,
+      answer,
+      `Using FV = PV × (1 + r)^n, the implied rate is approximately ${rate}%.`,
+      index % 3 === 0 ? 'Easy' : 'Medium',
+    )
+  })
+}
+
+function buildReturnQuestions() {
+  const specs = [
+    [100, 115, '15%', 'B'],
+    [50, 44, '-12%', 'B'],
+    [200, 230, '15%', 'B'],
+    [80, 92, '15%', 'B'],
+    [120, 108, '-10%', 'B'],
+    [250, 275, '10%', 'B'],
+    [90, 99, '10%', 'B'],
+    [300, 345, '15%', 'B'],
+  ]
+  return specs.map(([start, end, hpr, answer], index) =>
+    q(
+      'Reading 1',
+      `A stock price moves from $${start} to $${end} with no dividends. The holding period return is closest to:`,
+      `${Math.round(((end - start) / start) * 100 - 2)}%`,
+      hpr,
+      `${Math.round(((end - start) / start) * 100 + 3)}%`,
+      answer,
+      `HPR = (P1 - P0) / P0 = ${hpr}.`,
+      index % 2 === 0 ? 'Easy' : 'Medium',
+    ),
+  )
+}
+
+function buildStatisticsQuestions() {
+  const items = [
+    q(
+      'Reading 3',
+      'Which measure of central tendency is most appropriate when a return series contains a few extreme outliers?',
+      'Arithmetic mean',
+      'Median',
+      'Geometric mean',
+      'B',
+      'The median is less sensitive to outliers than the mean or geometric mean.',
+      'Medium',
+    ),
+    q(
+      'Reading 3',
+      'For a sample of returns, the coefficient of variation is defined as:',
+      'Standard deviation divided by the mean',
+      'Mean divided by standard deviation',
+      'Variance divided by the mean',
+      'A',
+      'CV = s / x̄ and measures risk per unit of return.',
+      'Medium',
+    ),
+    q(
+      'Reading 3',
+      'If a distribution is negatively skewed, the relationship among mean, median, and mode is most likely:',
+      'Mean < median < mode',
+      'Mean > median > mode',
+      'Mean = median = mode',
+      'A',
+      'Negative skew pulls the mean below the median.',
+      'Hard',
+    ),
+    q(
+      'Reading 3',
+      'The geometric mean of 10%, 20%, and -5% is closest to:',
+      '8.0%',
+      '8.3%',
+      '8.6%',
+      'B',
+      'Geometric mean compounds multi-period returns: [(1.10)(1.20)(0.95)]^(1/3) - 1 ≈ 8.3%.',
+      'Hard',
+    ),
+    q(
+      'Reading 3',
+      'Which statistic is most appropriate for measuring the dispersion of returns around the mean?',
+      'Range',
+      'Standard deviation',
+      'Mode',
+      'B',
+      'Standard deviation captures average deviation from the mean.',
+      'Easy',
+    ),
+    q(
+      'Reading 3',
+      'A leptokurtic return distribution most likely has:',
+      'Fatter tails and a higher peak than a normal distribution',
+      'Thinner tails and a lower peak than a normal distribution',
+      'Zero skewness by definition',
+      'A',
+      'Leptokurtosis implies excess kurtosis relative to the normal distribution.',
+      'Medium',
+    ),
+    q(
+      'Reading 3',
+      'The arithmetic mean return is generally greater than the geometric mean return when:',
+      'Returns are constant over time',
+      'Returns vary over time',
+      'All returns are negative',
+      'B',
+      'Variability creates a positive gap between arithmetic and geometric means.',
+      'Medium',
+    ),
+    q(
+      'Reading 3',
+      'For a positively skewed distribution, which statement is most accurate?',
+      'The mean is greater than the median',
+      'The mean is less than the median',
+      'The median equals the mode',
+      'A',
+      'Positive skew pulls the mean above the median.',
+      'Easy',
+    ),
+  ]
+  return items
+}
+
+function buildProbabilityQuestions() {
+  const items = [
+    q(
+      'Reading 4',
+      'If P(A) = 0.40 and P(B) = 0.50, and A and B are independent, P(A and B) is closest to:',
+      '0.20',
+      '0.45',
+      '0.90',
+      'A',
+      'For independent events, P(A ∩ B) = P(A) × P(B) = 0.20.',
+      'Easy',
+    ),
+    q(
+      'Reading 4',
+      'An analyst estimates a 60% probability of an up market and a 70% chance a stock beats the benchmark given an up market. The joint probability is closest to:',
+      '0.18',
+      '0.42',
+      '0.70',
+      'B',
+      'Joint probability = 0.60 × 0.70 = 0.42.',
+      'Medium',
+    ),
+    q(
+      'Reading 4',
+      'Using Bayes’ formula, if P(H) = 0.30, P(E|H) = 0.80, and P(E|not H) = 0.20, then P(H|E) is closest to:',
+      '0.46',
+      '0.63',
+      '0.80',
+      'B',
+      'Posterior probability updates the prior using new evidence.',
+      'Hard',
+    ),
+    q(
+      'Reading 4',
+      'The expected value of a discrete random variable is calculated as:',
+      'The sum of all possible outcomes',
+      'The probability-weighted average of outcomes',
+      'The most likely outcome',
+      'B',
+      'Expected value equals Σ [P(xi) × xi].',
+      'Easy',
+    ),
+    q(
+      'Reading 4',
+      'If two events are mutually exclusive, which statement is most accurate?',
+      'P(A and B) = P(A) × P(B)',
+      'P(A or B) = P(A) + P(B)',
+      'P(A or B) = P(A) × P(B)',
+      'B',
+      'Mutually exclusive events cannot occur together, so joint probability is zero.',
+      'Easy',
+    ),
+    q(
+      'Reading 4',
+      'A portfolio has a 25% chance of a 12% return and a 75% chance of a 4% return. The expected return is closest to:',
+      '4%',
+      '6%',
+      '8%',
+      'B',
+      'E(R) = 0.25(12%) + 0.75(4%) = 6%.',
+      'Medium',
+    ),
+    q(
+      'Reading 4',
+      'Which distribution is most appropriate for modeling the number of defaults in a fixed-size loan pool over a period?',
+      'Normal distribution',
+      'Binomial distribution',
+      'Lognormal distribution',
+      'B',
+      'A binomial model counts successes/failures in a fixed number of trials.',
+      'Medium',
+    ),
+    q(
+      'Reading 4',
+      'A continuous uniform distribution on the interval [2, 6] has a mean of:',
+      '2',
+      '4',
+      '6',
+      'B',
+      'For a uniform distribution, the mean is (a + b) / 2 = 4.',
+      'Easy',
+    ),
+  ]
+  return items
+}
+
+function buildDistributionQuestions() {
+  const items = [
+    q(
+      'Reading 5',
+      'For a normally distributed variable, approximately what percentage of observations lie within one standard deviation of the mean?',
+      '50%',
+      '68%',
+      '95%',
+      'B',
+      'The 68-95-99.7 rule applies to normal distributions.',
+      'Easy',
+    ),
+    q(
+      'Reading 5',
+      'The lognormal distribution is most appropriate for modeling:',
+      'Portfolio returns over one period',
+      'Asset prices that cannot be negative',
+      'Sample means from large samples',
+      'B',
+      'Prices are bounded below by zero and often modeled as lognormal.',
+      'Medium',
+    ),
+    q(
+      'Reading 5',
+      'According to the central limit theorem, the sampling distribution of the sample mean approaches normality as sample size increases, regardless of the population distribution, when:',
+      'The population variance is zero',
+      'The sample size is sufficiently large',
+      'The population is normal only',
+      'B',
+      'CLT requires a sufficiently large sample size.',
+      'Medium',
+    ),
+    q(
+      'Reading 5',
+      'Which pair of portfolio statistics determines the entire normal distribution of portfolio returns?',
+      'Mean and variance',
+      'Mean and skewness',
+      'Median and range',
+      'A',
+      'A normal distribution is fully defined by its mean and variance.',
+      'Easy',
+    ),
+    q(
+      'Reading 5',
+      'Roy’s safety-first criterion selects the portfolio with the highest:',
+      'Expected return only',
+      'Probability that return exceeds a minimum acceptable return',
+      'Sharpe ratio only',
+      'B',
+      'Safety-first maximizes P(R > RL).',
+      'Hard',
+    ),
+    q(
+      'Reading 5',
+      'Shortfall risk is best defined as the probability that:',
+      'Return equals the expected return',
+      'Return falls below a specified minimum level',
+      'Return exceeds the benchmark',
+      'B',
+      'Shortfall risk focuses on failing to meet a threshold return.',
+      'Medium',
+    ),
+  ]
+  return items
+}
+
+function buildSimulationQuestions() {
+  return [
+    q(
+      'Reading 6',
+      'Monte Carlo simulation is most useful when:',
+      'Analytical solutions are easy and exact',
+      'Multiple correlated inputs and path dependency make closed-form solutions difficult',
+      'Only one deterministic outcome exists',
+      'B',
+      'Simulation handles complex, path-dependent problems without closed-form solutions.',
+      'Medium',
+    ),
+    q(
+      'Reading 6',
+      'A limitation of Monte Carlo simulation is that results:',
+      'Cannot incorporate correlation among variables',
+      'Depend on the assumptions and input distributions chosen',
+      'Always understate tail risk',
+      'B',
+      'Output quality depends on model assumptions and inputs.',
+      'Medium',
+    ),
+    q(
+      'Reading 6',
+      'In a bootstrap resampling method, the analyst repeatedly:',
+      'Generates new data from a theoretical distribution only',
+      'Draws samples with replacement from the observed sample',
+      'Removes outliers before each draw',
+      'B',
+      'Bootstrap resampling draws with replacement from observed data.',
+      'Hard',
+    ),
+    q(
+      'Reading 6',
+      'Historical simulation differs from Monte Carlo simulation because historical simulation:',
+      'Uses randomly generated inputs from assumed distributions',
+      'Replays actual historical scenarios',
+      'Requires normality of returns',
+      'B',
+      'Historical simulation uses actual past outcomes rather than simulated ones.',
+      'Easy',
+    ),
+  ]
+}
+
+function buildEstimationQuestions() {
+  const items = [
+    q(
+      'Reading 7',
+      'The standard error of the sample mean decreases when:',
+      'Sample size increases',
+      'Population variance increases',
+      'Sample size decreases',
+      'A',
+      'Standard error = σ / √n, so it falls as n rises.',
+      'Easy',
+    ),
+    q(
+      'Reading 7',
+      'A 95% confidence interval for the population mean is constructed as:',
+      'Sample mean ± 1.96 × standard error',
+      'Sample mean ± 2.58 × sample standard deviation',
+      'Sample mean ± 0.95 × standard error',
+      'A',
+      'For large samples, 95% CI uses the 1.96 critical value.',
+      'Medium',
+    ),
+    q(
+      'Reading 7',
+      'Which statement about the t-distribution is most accurate?',
+      'It has fatter tails than the normal distribution when degrees of freedom are small',
+      'It is identical to the normal distribution for all sample sizes',
+      'It applies only to variance estimation',
+      'A',
+      'The t-distribution approaches normality as degrees of freedom increase.',
+      'Medium',
+    ),
+    q(
+      'Reading 7',
+      'If sample size is 25 and population variance is unknown, the appropriate distribution for inference about the mean is the:',
+      'Normal distribution',
+      't-distribution with 24 degrees of freedom',
+      'Chi-square distribution',
+      'B',
+      'Use the t-distribution when σ is unknown and n is small.',
+      'Medium',
+    ),
+    q(
+      'Reading 7',
+      'An unbiased estimator is one for which:',
+      'The expected value of the estimator equals the population parameter',
+      'The sample statistic always equals the parameter',
+      'The estimator has zero variance',
+      'A',
+      'Unbiasedness means E(estimator) = parameter.',
+      'Easy',
+    ),
+    q(
+      'Reading 7',
+      'Increasing sample size from 50 to 200 will most likely:',
+      'Widen the confidence interval',
+      'Narrow the confidence interval',
+      'Leave the confidence interval unchanged',
+      'B',
+      'Larger n reduces standard error and narrows the interval.',
+      'Easy',
+    ),
+    q(
+      'Reading 7',
+      'The point estimate of the population mean is:',
+      'The sample mean',
+      'The sample median',
+      'The population standard deviation',
+      'A',
+      'The sample mean is the usual point estimate of μ.',
+      'Easy',
+    ),
+    q(
+      'Reading 7',
+      'When constructing a confidence interval, a higher confidence level will most likely:',
+      'Narrow the interval',
+      'Widen the interval',
+      'Leave the interval unchanged',
+      'B',
+      'Higher confidence requires a wider interval to capture the parameter.',
+      'Medium',
+    ),
+  ]
+  return items
+}
+
+function buildHypothesisQuestions() {
+  const items = [
+    q(
+      'Reading 8',
+      'In hypothesis testing, a Type I error occurs when:',
+      'The null hypothesis is true but is rejected',
+      'The null hypothesis is false but is not rejected',
+      'The alternative hypothesis is true and is accepted',
+      'A',
+      'Type I error is a false positive rejection of a true null.',
+      'Easy',
+    ),
+    q(
+      'Reading 8',
+      'The p-value of a test is best interpreted as the probability of:',
+      'The null hypothesis being true',
+      'Obtaining a test statistic at least as extreme as observed, assuming H0 is true',
+      'The alternative hypothesis being false',
+      'B',
+      'The p-value measures evidence against H0 under the assumption H0 is true.',
+      'Medium',
+    ),
+    q(
+      'Reading 8',
+      'If a test rejects H0 at the 5% significance level, which statement is most accurate?',
+      'There is a 5% chance H0 is true',
+      'The result is statistically significant at the 5% level',
+      'The economic significance is guaranteed',
+      'B',
+      'Rejecting at 5% means the result is significant at that level, not that H0 is true with 5% probability.',
+      'Medium',
+    ),
+    q(
+      'Reading 8',
+      'A Type II error occurs when:',
+      'A false null is rejected',
+      'A false null is not rejected',
+      'A true null is rejected',
+      'B',
+      'Type II error is failing to reject a false null.',
+      'Easy',
+    ),
+    q(
+      'Reading 8',
+      'The power of a hypothesis test is defined as:',
+      'The probability of rejecting a false null hypothesis',
+      'The probability of rejecting a true null hypothesis',
+      'The significance level of the test',
+      'A',
+      'Power = 1 - P(Type II error).',
+      'Medium',
+    ),
+    q(
+      'Reading 8',
+      'For a two-tailed z-test at the 5% level, the critical values are approximately:',
+      '±1.645',
+      '±1.96',
+      '±2.58',
+      'B',
+      'A 5% two-tailed test uses ±1.96.',
+      'Easy',
+    ),
+    q(
+      'Reading 8',
+      'Which test is most appropriate for comparing means of two independent samples with unknown but equal variances?',
+      'Paired t-test',
+      'Two-sample pooled t-test',
+      'Chi-square test',
+      'B',
+      'The pooled t-test applies to independent samples with equal variances.',
+      'Medium',
+    ),
+    q(
+      'Reading 8',
+      'A paired comparisons t-test is most appropriate when:',
+      'Two independent samples are drawn from different populations',
+      'Observations are naturally matched or measured twice on the same subjects',
+      'Population variance is known',
+      'B',
+      'Paired tests use differences between matched observations.',
+      'Medium',
+    ),
+    q(
+      'Reading 8',
+      'If the calculated test statistic falls in the rejection region, the analyst should:',
+      'Reject the null hypothesis',
+      'Fail to reject the null hypothesis',
+      'Accept the null hypothesis as true',
+      'A',
+      'Values in the rejection region lead to rejection of H0.',
+      'Easy',
+    ),
+    q(
+      'Reading 8',
+      'Increasing the significance level from 1% to 5% will most likely:',
+      'Decrease the probability of Type I error',
+      'Increase the probability of Type I error',
+      'Leave Type I error unchanged',
+      'B',
+      'A higher α increases the chance of rejecting a true null.',
+      'Medium',
+    ),
+  ]
+  return items
+}
+
+function buildNonParametricQuestions() {
+  const items = [
+    q(
+      'Reading 9',
+      'The Mann-Whitney U test is most appropriate when:',
+      'Two independent samples are normally distributed',
+      'Two independent samples are not normally distributed',
+      'Observations are paired and normal',
+      'B',
+      'Mann-Whitney is a non-parametric test for independent samples.',
+      'Medium',
+    ),
+    q(
+      'Reading 9',
+      'The chi-square test for independence is used to assess whether:',
+      'Two population means are equal',
+      'Two categorical variables are related',
+      'Sample variance equals population variance',
+      'B',
+      'Chi-square independence tests association between categorical variables.',
+      'Medium',
+    ),
+    q(
+      'Reading 9',
+      'A non-parametric test is most useful when:',
+      'Normality and homoscedasticity assumptions are questionable',
+      'Sample size is extremely large and data are normal',
+      'Population variance is known',
+      'A',
+      'Non-parametric tests relax distributional assumptions.',
+      'Easy',
+    ),
+    q(
+      'Reading 9',
+      'The Spearman rank correlation measures:',
+      'Linear relationship only',
+      'Monotonic relationship based on ranks',
+      'Causal relationship between variables',
+      'B',
+      'Spearman correlation assesses monotonic association using ranks.',
+      'Medium',
+    ),
+    q(
+      'Reading 9',
+      'Which test compares observed frequencies to expected frequencies under a specified distribution?',
+      't-test',
+      'Chi-square goodness-of-fit test',
+      'F-test',
+      'B',
+      'Goodness-of-fit chi-square compares observed and expected counts.',
+      'Medium',
+    ),
+    q(
+      'Reading 9',
+      'The Wilcoxon signed-rank test is most similar in purpose to:',
+      'A paired t-test',
+      'An F-test for variance',
+      'A chi-square test of independence',
+      'A',
+      'Wilcoxon signed-rank is the non-parametric counterpart to the paired t-test.',
+      'Hard',
+    ),
+    q(
+      'Reading 9',
+      'A parametric test generally requires stronger assumptions about:',
+      'The underlying population distribution',
+      'The measurement scale only',
+      'The sample collection method only',
+      'A',
+      'Parametric tests assume a specific distribution, often normality.',
+      'Easy',
+    ),
+    q(
+      'Reading 9',
+      'When comparing more than two group means with non-normal data, an analyst may use:',
+      'Kruskal-Wallis test',
+      'Simple linear regression',
+      'Durbin-Watson test',
+      'A',
+      'Kruskal-Wallis extends rank-based testing to multiple groups.',
+      'Hard',
+    ),
+  ]
+  return items
+}
+
+function buildRegressionQuestions() {
+  const items = [
+    q(
+      'Reading 10',
+      'In simple linear regression, the slope coefficient indicates:',
+      'The expected change in Y for a one-unit change in X',
+      'The correlation between X and Y only',
+      'The proportion of variance explained by the model',
+      'A',
+      'The slope measures the marginal effect of X on Y.',
+      'Easy',
+    ),
+    q(
+      'Reading 10',
+      'The coefficient of determination (R²) represents:',
+      'The proportion of total variation in Y explained by X',
+      'The standard error of the estimate',
+      'The slope of the regression line',
+      'A',
+      'R² measures explanatory power of the independent variable.',
+      'Easy',
+    ),
+    q(
+      'Reading 10',
+      'If the correlation between X and Y is 0.80, R² is closest to:',
+      '0.80',
+      '0.64',
+      '0.36',
+      'B',
+      'R² equals the square of the correlation: 0.80² = 0.64.',
+      'Medium',
+    ),
+    q(
+      'Reading 10',
+      'A residual in regression analysis is defined as:',
+      'Actual Y minus predicted Y',
+      'Predicted Y minus actual Y divided by n',
+      'The slope divided by the standard error',
+      'A',
+      'Residual = observed value - fitted value.',
+      'Easy',
+    ),
+    q(
+      'Reading 10',
+      'Heteroskedasticity in a regression model means:',
+      'The error variance is not constant across observations',
+      'Independent variables are perfectly correlated',
+      'The mean of residuals is not zero',
+      'A',
+      'Heteroskedasticity violates the constant variance assumption.',
+      'Medium',
+    ),
+    q(
+      'Reading 10',
+      'The standard error of the regression estimate measures:',
+      'Average distance of observed Y values from the regression line',
+      'The slope coefficient only',
+      'The correlation between X and Y',
+      'A',
+      'It reflects typical deviation of Y from the fitted line.',
+      'Medium',
+    ),
+    q(
+      'Reading 10',
+      'If the t-statistic for a slope coefficient exceeds the critical value, the analyst concludes the slope is:',
+      'Statistically different from zero',
+      'Economically meaningful by default',
+      'Equal to the intercept',
+      'A',
+      'A significant t-statistic indicates the slope differs from zero statistically.',
+      'Medium',
+    ),
+  ]
+  return items
+}
+
+function buildBigDataQuestions() {
+  return [
+    q(
+      'Reading 11',
+      'Structured data is best described as data that:',
+      'Has no defined format and includes text and images only',
+      'Is organized in rows and columns with defined fields',
+      'Cannot be stored in databases',
+      'B',
+      'Structured data fits neatly into tables with defined fields.',
+      'Easy',
+    ),
+    q(
+      'Reading 11',
+      'Overfitting in machine learning occurs when a model:',
+      'Performs well on training data but poorly on new data',
+      'Uses too few variables',
+      'Has no predictive power on any dataset',
+      'A',
+      'Overfitting captures noise in the training sample.',
+      'Medium',
+    ),
+  ]
+}
+
+export function buildQmPracticePackQuestions() {
+  const questions = [
+    ...buildReturnQuestions(),
+    ...buildTvmQuestions(),
+    ...buildStatisticsQuestions(),
+    ...buildProbabilityQuestions(),
+    ...buildDistributionQuestions(),
+    ...buildSimulationQuestions(),
+    ...buildEstimationQuestions(),
+    ...buildHypothesisQuestions(),
+    ...buildNonParametricQuestions(),
+    ...buildRegressionQuestions(),
+    ...buildBigDataQuestions(),
+  ]
+
+  if (questions.length !== 79) {
+    throw new Error(`Expected 79 Quantitative Methods questions, got ${questions.length}`)
+  }
+
+  return questions.map((row, index) => ({ ...row, sortOrder: index + 1 }))
+}
