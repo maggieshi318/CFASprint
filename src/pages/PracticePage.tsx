@@ -443,13 +443,31 @@ export default function PracticePage() {
   }
 
   if (!sessionReady || !current) {
+    const needsAccess = !user?.isPremium && !wrongOnly && !bookmarksOnly
     return (
       <section className="practice-empty">
         <Link to="/study/practice" className="study-back-link">
           ← Question Bank
         </Link>
         <h2>{topicLabel || 'Practice Session'}</h2>
-        <p>No questions available for this topic yet.</p>
+        {needsAccess ? (
+          <>
+            <p>This account does not have active question bank access yet.</p>
+            <p className="helper-text">
+              Register with an internal test code for a 7-day full-access trial, or start the AED 9.9 trial.
+            </p>
+            <div className="practice-resume-actions">
+              <UpgradeButton className="practice-next-btn" planId="trial_monthly" source="/study/practice/session">
+                Start AED 9.9 trial
+              </UpgradeButton>
+              <Link to="/register" className="practice-prev-btn practice-link-btn">
+                Register with test code
+              </Link>
+            </div>
+          </>
+        ) : (
+          <p>No questions available for this topic yet.</p>
+        )}
       </section>
     )
   }

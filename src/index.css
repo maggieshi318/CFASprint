@@ -4524,6 +4524,13 @@ textarea {
   cursor: not-allowed;
 }
 
+.practice-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 .practice-next-btn {
   border: 0;
   background: #4d8cff;
