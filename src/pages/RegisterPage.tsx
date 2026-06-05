@@ -57,8 +57,21 @@ export default function RegisterPage() {
       </section>
       <form className="login-card" onSubmit={handleSubmit}>
         <h2>Create account</h2>
-        <p>Enter your internal test registration code to start.</p>
+        <div className="invite-code-callout">
+          <strong>Internal beta requires a registration code.</strong>
+          <span>Ask the admin for a code, then enter it below to unlock your 7-day full-access trial.</span>
+        </div>
         {referralCode ? <p className="helper-text">Referral code applied: {referralCode}</p> : null}
+        <label className="invite-code-field">
+          Internal test registration code
+          <input
+            required
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+            placeholder="CFA-ABC123"
+            autoComplete="one-time-code"
+          />
+        </label>
         <label>
           Name
           <input value={name} onChange={(e) => setName(e.target.value)} />
@@ -71,18 +84,10 @@ export default function RegisterPage() {
           Password
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </label>
-        <label>
-          Internal test code
-          <input
-            value={inviteCode}
-            onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-            placeholder="CFA-ABC123"
-          />
-        </label>
         {error && <div className="error">{error}</div>}
         {verifyHint ? <p className="helper-text">{verifyHint}</p> : null}
         <button type="submit" disabled={loading}>
-          {loading ? 'Creating...' : 'Create account'}
+          {loading ? 'Creating...' : 'Create account with code'}
         </button>
         <p className="helper-text">
           Already registered? <Link to="/login">Sign in</Link> | <Link to="/pricing">Compare plans</Link>
