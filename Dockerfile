@@ -26,6 +26,7 @@ RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY server ./server
 COPY scripts ./scripts
+COPY data ./data
 
 ENV NODE_ENV=production
 ENV PORT=8787
