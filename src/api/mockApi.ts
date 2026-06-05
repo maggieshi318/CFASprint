@@ -184,6 +184,7 @@ export async function registerAccount(payload: {
   email: string
   password: string
   referralCode?: string
+  inviteCode: string
 }): Promise<{ token: string; user: User; dev?: { verifyUrl?: string; devToken?: string } }> {
   return apiRequest('/auth/register', {
     method: 'POST',
@@ -471,6 +472,35 @@ export type AdminAnalytics = {
 
 export async function fetchAdminAnalytics(token: string): Promise<AdminAnalytics> {
   return apiRequest('/admin/analytics', { method: 'GET' }, token)
+}
+
+export type InviteCode = {
+  id: number
+  code: string
+  note: string | null
+  trialDays: number
+  status: 'active' | 'used' | 'disabled'
+  createdAt: string
+  redeemedAt: string | null
+  redeemedByEmail: string | null
+}
+
+export async function fetchInviteCodes(token: string): Promise<InviteCode[]> {
+  return apiRequest('/admin/invite-codes', { method: 'GET' }, token)
+}
+
+export async function createInviteCode(
+  token: string,
+  payload: { note?: string; trialDays?: number },
+): Promise<{ code: string; inviteCodes: InviteCode[] }> {
+  return apiRequest(
+    '/admin/invite-codes',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    token,
+  )
 }
 
 export async function downloadAdminCsv(token: string, kind: 'csv-template' | 'export-csv') {

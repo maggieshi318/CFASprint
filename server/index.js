@@ -200,6 +200,18 @@ CREATE TABLE IF NOT EXISTS referral_rewards (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(referrer_user_id, referred_user_id)
 );
+
+CREATE TABLE IF NOT EXISTS invite_codes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL UNIQUE,
+  note TEXT,
+  trial_days INTEGER NOT NULL DEFAULT 7,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_by_user_id INTEGER,
+  redeemed_by_user_id INTEGER,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  redeemed_at TEXT
+);
 `)
 
 function ensureColumn(tableName, columnName, columnSql) {
@@ -251,6 +263,15 @@ db.prepare("UPDATE users SET exam_date = '2026-11-11' WHERE email IN (?, ?)").ru
 db.prepare("UPDATE users SET exam_date = '2026-11-11' WHERE exam_date IS NULL OR exam_date = ''").run()
 db.prepare(
   "UPDATE users SET referral_code = lower(hex(randomblob(4))) WHERE referral_code IS NULL OR referral_code = ''",
+).run()
+db.prepare(
+  `
+  UPDATE users
+  SET plan = 'free',
+      subscription_status = 'inactive',
+      subscription_expires_at = NULL
+  WHERE lower(email) = 'candidate@example.com'
+`,
 ).run()
 
 db.prepare('UPDATE users SET email_verified = 1 WHERE email IN (?, ?)').run(
@@ -330,6 +351,37 @@ function createReferralCode() {
     if (!exists) return code
   }
   return `${Date.now().toString(36)}${crypto.randomBytes(2).toString('hex')}`
+}
+
+function createInviteCode() {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const code = `CFA-${crypto.randomBytes(3).toString('hex').toUpperCase()}`
+    const exists = db.prepare('SELECT id FROM invite_codes WHERE code = ?').get(code)
+    if (!exists) return code
+  }
+  return `CFA-${Date.now().toString(36).toUpperCase()}`
+}
+
+function listInviteCodes() {
+  return db
+    .prepare(
+      `
+      SELECT
+        c.id,
+        c.code,
+        c.note,
+        c.trial_days AS trialDays,
+        c.status,
+        c.created_at AS createdAt,
+        c.redeemed_at AS redeemedAt,
+        u.email AS redeemedByEmail
+      FROM invite_codes c
+      LEFT JOIN users u ON u.id = c.redeemed_by_user_id
+      ORDER BY datetime(c.created_at) DESC, c.id DESC
+      LIMIT 100
+    `,
+    )
+    .all()
 }
 
 async function deliverAuthEmail(userRow, subject, actionUrl, actionLabel) {
@@ -501,9 +553,28 @@ app.post('/api/auth/login', (req, res) => {
 })
 
 app.post('/api/auth/register', async (req, res) => {
-  const { name, email, password, referralCode } = req.body || {}
+  const { name, email, password, referralCode, inviteCode } = req.body || {}
   if (!name || !email || !password) {
     return res.status(400).json({ message: 'Name, email, and password are required' })
+  }
+  const normalizedInviteCode = String(inviteCode || '').trim().toUpperCase()
+  if (!normalizedInviteCode) {
+    return res.status(400).json({ message: 'Internal test registration code is required.' })
+  }
+  const invite = db
+    .prepare(
+      `
+      SELECT *
+      FROM invite_codes
+      WHERE upper(code) = ?
+        AND status = 'active'
+        AND redeemed_by_user_id IS NULL
+      LIMIT 1
+    `,
+    )
+    .get(normalizedInviteCode)
+  if (!invite) {
+    return res.status(400).json({ message: 'Invalid or already used internal test registration code.' })
   }
   const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(email)
   if (exists) return res.status(409).json({ message: 'Email is already registered' })
@@ -517,15 +588,35 @@ app.post('/api/auth/register', async (req, res) => {
     : null
   const passwordHash = bcrypt.hashSync(password, 10)
   const newReferralCode = createReferralCode()
-  const result = db
-    .prepare(
+  const expiresAt = db
+    .prepare("SELECT datetime('now', ?) AS expiresAt")
+    .get(`+${Number(invite.trial_days || 7)} days`).expiresAt
+  const result = db.transaction(() => {
+    const insert = db
+      .prepare(
+        `
+        INSERT INTO users
+          (
+            name, email, role, locale, password_hash, referral_code, referred_by_user_id,
+            plan, subscription_status, subscription_expires_at
+          )
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'trial_monthly', 'active', ?)
+      `,
+      )
+      .run(name, email, 'student', 'en', passwordHash, newReferralCode, referrer?.id || null, expiresAt)
+
+    db.prepare(
       `
-      INSERT INTO users
-        (name, email, role, locale, password_hash, referral_code, referred_by_user_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      UPDATE invite_codes
+      SET status = 'used',
+          redeemed_by_user_id = ?,
+          redeemed_at = datetime('now')
+      WHERE id = ?
     `,
-    )
-    .run(name, email, 'student', 'en', passwordHash, newReferralCode, referrer?.id || null)
+    ).run(insert.lastInsertRowid, invite.id)
+
+    return insert
+  })()
   const user = getUserRow(result.lastInsertRowid)
   const token = issueToken(user)
   const verification = issueAuthAction(db, user, 'verify', config.appUrl, '/verify-email')
@@ -913,6 +1004,23 @@ app.get('/api/admin/questions/export-csv', authMiddleware, adminMiddleware, (_re
 
 app.get('/api/admin/analytics', authMiddleware, adminMiddleware, (_req, res) => {
   return res.json({ ...buildAdminAnalytics(db), push: getPushStatus(db) })
+})
+
+app.get('/api/admin/invite-codes', authMiddleware, adminMiddleware, (_req, res) => {
+  return res.json(listInviteCodes())
+})
+
+app.post('/api/admin/invite-codes', authMiddleware, adminMiddleware, (req, res) => {
+  const note = String(req.body?.note || '').trim().slice(0, 120)
+  const trialDays = Math.min(30, Math.max(1, Number(req.body?.trialDays) || 7))
+  const code = createInviteCode()
+  db.prepare(
+    `
+    INSERT INTO invite_codes (code, note, trial_days, status, created_by_user_id, created_at)
+    VALUES (?, ?, ?, 'active', ?, datetime('now'))
+  `,
+  ).run(code, note || null, trialDays, req.user.id)
+  return res.json({ code, inviteCodes: listInviteCodes() })
 })
 
 app.post('/api/admin/push/broadcast', authMiddleware, adminMiddleware, async (req, res) => {

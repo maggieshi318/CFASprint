@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
-import { fetchAdminAnalytics, type AdminAnalytics } from '../api/mockApi'
+import {
+  createInviteCode,
+  fetchAdminAnalytics,
+  fetchInviteCodes,
+  type AdminAnalytics,
+  type InviteCode,
+} from '../api/mockApi'
 import { useAuth } from '../auth/AuthContext'
 
 type AnalyticsWithPush = AdminAnalytics & {
@@ -22,11 +28,28 @@ function shortDate(value: string | null | undefined) {
 export default function AdminAnalyticsPage() {
   const { token } = useAuth()
   const [analytics, setAnalytics] = useState<AnalyticsWithPush | null>(null)
+  const [inviteCodes, setInviteCodes] = useState<InviteCode[]>([])
+  const [inviteNote, setInviteNote] = useState('')
+  const [creatingInvite, setCreatingInvite] = useState(false)
 
   useEffect(() => {
     if (!token) return
     fetchAdminAnalytics(token).then(setAnalytics)
+    fetchInviteCodes(token).then(setInviteCodes).catch(() => setInviteCodes([]))
   }, [token])
+
+  async function handleCreateInviteCode() {
+    if (!token) return
+    setCreatingInvite(true)
+    try {
+      const result = await createInviteCode(token, { note: inviteNote, trialDays: 7 })
+      setInviteCodes(result.inviteCodes)
+      setInviteNote('')
+      await navigator.clipboard?.writeText(result.code)
+    } finally {
+      setCreatingInvite(false)
+    }
+  }
 
   if (!analytics) {
     return <section className="panel">Loading merchant analytics...</section>
@@ -44,6 +67,64 @@ export default function AdminAnalyticsPage() {
       <p className="meta">
         Live data from registered candidates, practice submissions, payment status, and mock exam records.
       </p>
+
+      <article className="settings-block">
+        <h3>Internal Test Registration Codes</h3>
+        <p className="helper-text">
+          New candidates must enter one active code to register. Each code opens a free 7-day full-access beta trial and
+          can only be used once.
+        </p>
+        <div className="admin-invite-actions">
+          <input
+            value={inviteNote}
+            onChange={(event) => setInviteNote(event.target.value)}
+            placeholder="Optional note, e.g. WhatsApp beta group"
+          />
+          <button type="button" className="primary-btn" disabled={creatingInvite} onClick={handleCreateInviteCode}>
+            {creatingInvite ? 'Generating...' : 'Generate code'}
+          </button>
+        </div>
+        <div className="data-table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Status</th>
+                <th>Trial</th>
+                <th>Note</th>
+                <th>Redeemed by</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inviteCodes.map((item) => (
+                <tr key={item.id}>
+                  <td>
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() => void navigator.clipboard?.writeText(item.code)}
+                      title="Copy code"
+                    >
+                      {item.code}
+                    </button>
+                  </td>
+                  <td>{item.status}</td>
+                  <td>{item.trialDays} days</td>
+                  <td>{item.note || '-'}</td>
+                  <td>{item.redeemedByEmail || '-'}</td>
+                  <td>{shortDate(item.createdAt)}</td>
+                </tr>
+              ))}
+              {inviteCodes.length === 0 ? (
+                <tr>
+                  <td colSpan={6}>No invite codes yet.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </article>
 
       <div className="stats merchant-stats">
         <article>
