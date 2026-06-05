@@ -22,6 +22,7 @@ import { notifyStudyReviewChanged } from '../utils/studyReview'
 import { buildWrongSummary, refreshStudyReview, syncSessionAnswersToServer } from '../utils/studyReviewSync'
 import { useAuth } from '../auth/AuthContext'
 import UpgradeButton from '../components/UpgradeButton'
+import { ApiError } from '../api/client'
 
 type AnswerMode = 'instant' | 'after_submit'
 
@@ -99,6 +100,7 @@ export default function PracticePage() {
   const [resumePrompt, setResumePrompt] = useState<PracticeSessionSnapshot | null>(null)
   const [sessionReady, setSessionReady] = useState(false)
   const [upgradePrompt, setUpgradePrompt] = useState('')
+  const [loadError, setLoadError] = useState('')
   const { token, user } = useAuth()
   const {
     favorites,
@@ -196,6 +198,7 @@ export default function PracticePage() {
     setLoading(true)
     setSessionReady(false)
     setResumePrompt(null)
+    setLoadError('')
     fetchQuestions(
       token,
       {
@@ -210,6 +213,13 @@ export default function PracticePage() {
       })
       .catch((error) => {
         if (error?.name !== 'AbortError') {
+          if (error instanceof ApiError && error.status === 401) {
+            setLoadError('Your login session has expired. Please log out, then sign in again.')
+          } else if (error instanceof Error) {
+            setLoadError(error.message)
+          } else {
+            setLoadError('Could not load questions. Please try again.')
+          }
           setLoadedQuestions([])
         }
       })
@@ -450,7 +460,14 @@ export default function PracticePage() {
           ← Question Bank
         </Link>
         <h2>{topicLabel || 'Practice Session'}</h2>
-        {needsAccess ? (
+        {loadError ? (
+          <>
+            <p>{loadError}</p>
+            <p className="helper-text">
+              If you recently reset this account, log out and register again with a fresh internal test code.
+            </p>
+          </>
+        ) : needsAccess ? (
           <>
             <p>This account does not have active question bank access yet.</p>
             <p className="helper-text">
