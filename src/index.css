@@ -4459,7 +4459,7 @@ textarea {
 }
 
 .practice-analysis-feedback:disabled {
-  opacity: 0.85;
+  opacity: 0.65;
   cursor: default;
 }
 
@@ -4481,6 +4481,96 @@ textarea {
   color: #374151;
   line-height: 1.75;
   font-size: 0.92rem;
+}
+
+.practice-ai-error {
+  margin: 0.85rem 0 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 0.9rem;
+}
+
+.practice-ai-panel {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+  padding: 0.95rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+}
+
+.practice-ai-head {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.practice-ai-head span {
+  color: #2563eb;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.practice-ai-head strong {
+  color: #1e3a8a;
+  font-size: 0.98rem;
+}
+
+.practice-ai-sections {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0;
+}
+
+.practice-ai-sections div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.practice-ai-sections dt {
+  color: #1e40af;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.practice-ai-sections dd {
+  margin: 0;
+  color: #334155;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.practice-ai-mini-quiz {
+  padding-top: 0.8rem;
+  border-top: 1px solid #bfdbfe;
+}
+
+.practice-ai-mini-quiz h5 {
+  margin: 0 0 0.45rem;
+  color: #1e3a8a;
+  font-size: 0.9rem;
+}
+
+.practice-ai-mini-quiz p,
+.practice-ai-mini-quiz li,
+.practice-ai-review {
+  color: #334155;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.practice-ai-mini-quiz p,
+.practice-ai-review {
+  margin: 0.45rem 0 0;
+}
+
+.practice-ai-mini-quiz ol {
+  margin: 0.45rem 0 0;
+  padding-left: 1.25rem;
 }
 
 .practice-q-foot {

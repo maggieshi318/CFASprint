@@ -9,6 +9,7 @@
     "dev:server": "node server/index.js",
     "build": "tsc -b && vite build",
     "start": "cross-env NODE_ENV=production node server/index.js",
+    "test:ai": "node --test server/aiTutor.test.mjs",
     "test:e2e": "node scripts/e2e-smoke.mjs",
     "preflight": "node scripts/preflight.mjs",
     "preflight:strict": "node scripts/preflight.mjs --strict",

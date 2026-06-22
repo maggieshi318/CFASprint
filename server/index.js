@@ -42,6 +42,7 @@ import {
   resolveQuestionsPack,
 } from './bankAccess.js'
 import { extractPackId } from './tagUtils.js'
+import { getAiTutorProviderConfig, requestAiTutorExplanation } from './aiTutor.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -211,6 +212,16 @@ CREATE TABLE IF NOT EXISTS invite_codes (
   redeemed_by_user_id INTEGER,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   redeemed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS ai_tutor_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  question_id INTEGER NOT NULL,
+  selected TEXT NOT NULL,
+  user_question TEXT,
+  response_json TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 `)
 
@@ -1023,6 +1034,40 @@ app.post('/api/admin/invite-codes', authMiddleware, adminMiddleware, (req, res) 
   return res.json({ code, inviteCodes: listInviteCodes() })
 })
 
+// Extend a user's subscription by N days (admin only)
+app.post('/api/admin/users/:userId/extend', authMiddleware, adminMiddleware, (req, res) => {
+  const userId = Number(req.params.userId)
+  const days = Math.min(90, Math.max(1, Number(req.body?.days) || 7))
+  const user = db
+    .prepare('SELECT id, name, email, plan, subscription_status, subscription_expires_at FROM users WHERE id = ?')
+    .get(userId)
+  if (!user) return res.status(404).json({ message: 'User not found' })
+  const newExpiry = db.prepare(
+    "SELECT datetime(MAX(COALESCE(?, datetime('now')), datetime('now')), ?) AS d",
+  ).get(user.subscription_expires_at, `+${days} days`).d
+  db.prepare(
+    "UPDATE users SET plan = 'trial_monthly', subscription_status = 'active', subscription_expires_at = ? WHERE id = ?",
+  ).run(newExpiry, userId)
+  return res.json({
+    userId,
+    name: user.name,
+    email: user.email,
+    previousPlan: user.plan,
+    previousExpiresAt: user.subscription_expires_at,
+    plan: 'trial_monthly',
+    extendedDays: days,
+    newExpiresAt: newExpiry,
+  })
+})
+
+// Get all users with subscription info (admin only)
+app.get('/api/admin/users', authMiddleware, adminMiddleware, (_req, res) => {
+  const users = db.prepare(
+    'SELECT id, name, email, plan, subscription_status, subscription_expires_at, created_at FROM users ORDER BY id DESC'
+  ).all()
+  return res.json(users)
+})
+
 app.post('/api/admin/push/broadcast', authMiddleware, adminMiddleware, async (req, res) => {
   const title = String(req.body?.title || '').trim()
   const body = String(req.body?.body || '').trim()
@@ -1074,6 +1119,71 @@ app.post('/api/questions/:id/submit', authMiddleware, (req, res) => {
     correctAnswer: question.answer,
     explanation: question.explanation,
   })
+})
+
+app.post('/api/ai/explain-question', authMiddleware, async (req, res) => {
+  const aiProvider = getAiTutorProviderConfig(config)
+  if (!aiProvider.apiKey) {
+    return res.status(503).json({ message: 'AI Tutor is not configured yet.' })
+  }
+
+  const questionId = Number(req.body?.questionId)
+  const selected = String(req.body?.selected || '').trim().toUpperCase()
+  const userQuestion = String(req.body?.userQuestion || '').trim().slice(0, 500)
+  if (!questionId || !['A', 'B', 'C'].includes(selected)) {
+    return res.status(400).json({ message: 'questionId and selected answer are required.' })
+  }
+
+  const question = db
+    .prepare(
+      `
+      SELECT id, topic, los, exam_year, tags, difficulty, stem, option_a, option_b, option_c, answer, explanation
+      FROM questions
+      WHERE id = ?
+    `,
+    )
+    .get(questionId)
+  if (!question) return res.status(404).json({ message: 'Question not found' })
+
+  const userRow = getUserRow(req.user.id)
+  const accessible = filterQuestionsForUser(db, userRow, [question], {
+    pack: resolveQuestionsPack({ pack: extractPackId(question.tags), topic: question.topic }) || undefined,
+  })
+  if (!accessible.length) {
+    return res.status(403).json({ message: 'Upgrade to access AI Tutor for this question.' })
+  }
+
+  const dailyLimit = Math.max(0, Number(config.aiTutorDailyLimit) || 0)
+  const usedToday = db
+    .prepare(
+      `
+      SELECT COUNT(*) AS count
+      FROM ai_tutor_requests
+      WHERE user_id = ? AND date(created_at) = date('now')
+    `,
+    )
+    .get(req.user.id).count
+  if (dailyLimit > 0 && usedToday >= dailyLimit) {
+    return res.status(429).json({ message: 'Daily AI Tutor limit reached. Try again tomorrow.' })
+  }
+
+  try {
+    const explanation = await requestAiTutorExplanation({
+      provider: aiProvider,
+      question,
+      selected,
+      userQuestion,
+    })
+    db.prepare(
+      `
+      INSERT INTO ai_tutor_requests (user_id, question_id, selected, user_question, response_json)
+      VALUES (?, ?, ?, ?, ?)
+    `,
+    ).run(req.user.id, questionId, selected, userQuestion || null, JSON.stringify(explanation))
+    return res.json({ explanation, remainingToday: dailyLimit > 0 ? Math.max(dailyLimit - usedToday - 1, 0) : null })
+  } catch (error) {
+    return res.status(502).json({ message: error.message || 'AI Tutor request failed' })
+  }
 })
 
 app.get('/api/stats', authMiddleware, (req, res) => {
@@ -1475,4 +1585,3 @@ app.listen(config.port, () => {
   // eslint-disable-next-line no-console
   console.log(`CFA Sprint server running at http://localhost:${config.port} (${config.nodeEnv})`)
 })
-

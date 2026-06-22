@@ -32,6 +32,21 @@ export type WeakArea = {
   completed: number
 }
 
+export type AiTutorExplanation = {
+  summary: string
+  coreConcept: string
+  whyCorrect: string
+  whySelectedWrong: string
+  examTrap: string
+  similarPracticeQuestion: {
+    stem: string
+    options: Record<Answer, string>
+    answer: Answer
+    explanation: string
+  }
+  reviewPrompt: string
+}
+
 export type StatsResponse = {
   totalQuestions: number
   completed: number
@@ -242,6 +257,16 @@ export async function submitQuestionResult(
     },
     token,
   )
+}
+
+export async function explainQuestionWithAi(
+  token: string,
+  payload: { questionId: number; selected: Answer; userQuestion?: string },
+): Promise<{ explanation: AiTutorExplanation; remainingToday: number | null }> {
+  return apiRequest('/ai/explain-question', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }, token)
 }
 
 export async function fetchPricingPlans(): Promise<PricingPlan[]> {

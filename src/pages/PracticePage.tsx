@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { fetchQuestions, submitQuestionResult, toggleFavoriteRequest } from '../api/mockApi'
+import {
+  explainQuestionWithAi,
+  fetchQuestions,
+  submitQuestionResult,
+  toggleFavoriteRequest,
+  type AiTutorExplanation,
+} from '../api/mockApi'
 import { topicDisplayCount, topicDisplayName } from '../constants/questionBankDisplay'
 import { useStudy } from '../store/StudyContext'
 import type { Answer, Question } from '../types'
@@ -101,6 +107,9 @@ export default function PracticePage() {
   const [sessionReady, setSessionReady] = useState(false)
   const [upgradePrompt, setUpgradePrompt] = useState('')
   const [loadError, setLoadError] = useState('')
+  const [aiTutorByQuestion, setAiTutorByQuestion] = useState<Record<number, AiTutorExplanation>>({})
+  const [aiTutorLoadingId, setAiTutorLoadingId] = useState<number | null>(null)
+  const [aiTutorError, setAiTutorError] = useState('')
   const { token, user } = useAuth()
   const {
     favorites,
@@ -397,6 +406,26 @@ export default function PracticePage() {
     setNoteSavedMessage('')
   }
 
+  async function handleAskAiTutor() {
+    if (!token || !current || !selected) return
+    setAiTutorError('')
+    setAiTutorLoadingId(current.id)
+    try {
+      const result = await explainQuestionWithAi(token, {
+        questionId: current.id,
+        selected,
+      })
+      setAiTutorByQuestion((prev) => ({
+        ...prev,
+        [current.id]: result.explanation,
+      }))
+    } catch (error) {
+      setAiTutorError(error instanceof Error ? error.message : 'AI Tutor is temporarily unavailable.')
+    } finally {
+      setAiTutorLoadingId(null)
+    }
+  }
+
   const stemParts = useMemo(
     () => (current ? parseQuestionStem(current.stem) : { text: '', images: [] }),
     [current?.stem],
@@ -408,6 +437,7 @@ export default function PracticePage() {
     const correctAnswer = (currentState?.correctAnswer || current.answer) as Answer
     return formatLanrenAnalysisLines(explanation, correctAnswer)
   }, [current, currentState, submitted])
+  const aiTutorExplanation = current ? aiTutorByQuestion[current.id] : null
 
   function optionClass(key: Answer) {
     if (!current || !submitted) {
@@ -560,8 +590,13 @@ export default function PracticePage() {
                       {currentState?.correctAnswer || current.answer}
                     </strong>
                   </span>
-                  <button type="button" className="practice-analysis-feedback" disabled title="Coming soon">
-                    Report issue
+                  <button
+                    type="button"
+                    className="practice-analysis-feedback"
+                    onClick={handleAskAiTutor}
+                    disabled={aiTutorLoadingId === current.id}
+                  >
+                    {aiTutorLoadingId === current.id ? 'Asking AI Tutor...' : 'Ask AI Tutor'}
                   </button>
                 </div>
                 <h4 className="practice-analysis-title">Answer Explanation</h4>
@@ -572,6 +607,47 @@ export default function PracticePage() {
                     </p>
                   ))}
                 </div>
+                {aiTutorError ? <p className="practice-ai-error">{aiTutorError}</p> : null}
+                {aiTutorExplanation ? (
+                  <section className="practice-ai-panel" aria-label="AI Tutor explanation">
+                    <div className="practice-ai-head">
+                      <span>AI Tutor</span>
+                      <strong>{aiTutorExplanation.summary}</strong>
+                    </div>
+                    <dl className="practice-ai-sections">
+                      <div>
+                        <dt>Core concept</dt>
+                        <dd>{aiTutorExplanation.coreConcept}</dd>
+                      </div>
+                      <div>
+                        <dt>Why the correct answer works</dt>
+                        <dd>{aiTutorExplanation.whyCorrect}</dd>
+                      </div>
+                      <div>
+                        <dt>Why your choice is wrong</dt>
+                        <dd>{aiTutorExplanation.whySelectedWrong}</dd>
+                      </div>
+                      <div>
+                        <dt>Exam trap</dt>
+                        <dd>{aiTutorExplanation.examTrap}</dd>
+                      </div>
+                    </dl>
+                    <div className="practice-ai-mini-quiz">
+                      <h5>Original follow-up question</h5>
+                      <p>{aiTutorExplanation.similarPracticeQuestion.stem}</p>
+                      <ol type="A">
+                        <li>{aiTutorExplanation.similarPracticeQuestion.options.A}</li>
+                        <li>{aiTutorExplanation.similarPracticeQuestion.options.B}</li>
+                        <li>{aiTutorExplanation.similarPracticeQuestion.options.C}</li>
+                      </ol>
+                      <p>
+                        Answer: <strong>{aiTutorExplanation.similarPracticeQuestion.answer}</strong>.{' '}
+                        {aiTutorExplanation.similarPracticeQuestion.explanation}
+                      </p>
+                    </div>
+                    <p className="practice-ai-review">{aiTutorExplanation.reviewPrompt}</p>
+                  </section>
+                ) : null}
               </div>
             ) : null}
           </div>

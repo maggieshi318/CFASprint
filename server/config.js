@@ -62,6 +62,13 @@ export const config = {
   smtpFrom: process.env.SMTP_FROM || '',
   firebaseServiceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH || '',
   firebaseServiceAccountJson: process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '',
+  aiProvider: process.env.AI_PROVIDER || 'openai',
+  openaiApiKey: process.env.OPENAI_API_KEY || '',
+  openaiModel: process.env.OPENAI_MODEL || 'gpt-5.5',
+  deepseekApiKey: process.env.DEEPSEEK_API_KEY || '',
+  deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+  deepseekBaseUrl: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+  aiTutorDailyLimit: Number(process.env.AI_TUTOR_DAILY_LIMIT || 20),
 }
 
 if (isProduction && config.jwtSecret === 'cfa_sprint_dev_secret') {
