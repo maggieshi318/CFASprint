@@ -6,6 +6,7 @@ import {
   buildDeepSeekTutorRequest,
   buildDeepSeekNotesSummaryRequest,
   getAiTutorProviderConfig,
+  normalizeAiNotesStudyReport,
   parseDeepSeekTutorResponse,
 } from './aiTutor.js'
 
@@ -157,4 +158,23 @@ test('builds a DeepSeek notes summary request that asks for valid JSON', () => {
   assert.match(request.messages[0].content, /valid JSON object/i)
   assert.match(request.messages[0].content, /topics/)
   assert.match(request.messages[1].content, /Inventory write-downs/)
+})
+
+test('normalizes notes study report plans returned as a string', () => {
+  const report = normalizeAiNotesStudyReport({
+    topics: [
+      {
+        topic: 'FSA',
+        knowledgePoints: ['Auditor opinions include unqualified, qualified, adverse, and disclaimer.'],
+        commonMistakes: ['Confusing qualified and adverse opinions.'],
+        keyFormulas: [],
+        memoryHooks: ['UQAD'],
+        relatedQuestionIds: [42],
+        reviewActions: ['Review opinion examples.'],
+      },
+    ],
+    overallReviewPlan: 'Review FSA auditor opinions, then redo related questions.',
+  })
+
+  assert.deepEqual(report.overallReviewPlan, ['Review FSA auditor opinions, then redo related questions.'])
 })

@@ -246,6 +246,38 @@ export function parseDeepSeekTutorResponse(body) {
   return JSON.parse(text)
 }
 
+function stringList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || '').trim()).filter(Boolean)
+  }
+  const text = String(value || '').trim()
+  return text ? [text] : []
+}
+
+function numberList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => Number(item)).filter(Number.isFinite)
+  }
+  const number = Number(value)
+  return Number.isFinite(number) ? [number] : []
+}
+
+export function normalizeAiNotesStudyReport(report) {
+  const topics = Array.isArray(report?.topics) ? report.topics : []
+  return {
+    topics: topics.map((topic) => ({
+      topic: String(topic?.topic || 'General Review').trim() || 'General Review',
+      knowledgePoints: stringList(topic?.knowledgePoints),
+      commonMistakes: stringList(topic?.commonMistakes),
+      keyFormulas: stringList(topic?.keyFormulas),
+      memoryHooks: stringList(topic?.memoryHooks),
+      relatedQuestionIds: numberList(topic?.relatedQuestionIds),
+      reviewActions: stringList(topic?.reviewActions),
+    })),
+    overallReviewPlan: stringList(report?.overallReviewPlan),
+  }
+}
+
 export function getAiTutorProviderConfig(config) {
   const providerName = String(config.aiProvider || 'openai').trim().toLowerCase()
   if (providerName === 'deepseek') {
@@ -355,19 +387,22 @@ export async function requestAiTutorExplanation({ provider, question, selected, 
 }
 
 export async function requestAiNotesSummary({ provider, notes }) {
+  let report
   if (provider.name === 'deepseek') {
-    return requestDeepSeekNotesSummary({
+    report = await requestDeepSeekNotesSummary({
       apiKey: provider.apiKey,
       model: provider.model,
       baseUrl: provider.baseUrl,
       notes,
     })
+    return normalizeAiNotesStudyReport(report)
   }
 
-  return requestOpenAiNotesSummary({
+  report = await requestOpenAiNotesSummary({
     apiKey: provider.apiKey,
     model: provider.model,
     baseUrl: provider.baseUrl,
     notes,
   })
+  return normalizeAiNotesStudyReport(report)
 }
