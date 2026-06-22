@@ -47,6 +47,19 @@ export type AiTutorExplanation = {
   reviewPrompt: string
 }
 
+export type AiNotesStudyReport = {
+  topics: Array<{
+    topic: string
+    knowledgePoints: string[]
+    commonMistakes: string[]
+    keyFormulas: string[]
+    memoryHooks: string[]
+    relatedQuestionIds: number[]
+    reviewActions: string[]
+  }>
+  overallReviewPlan: string[]
+}
+
 export type StatsResponse = {
   totalQuestions: number
   completed: number
@@ -266,6 +279,21 @@ export async function explainQuestionWithAi(
   return apiRequest('/ai/explain-question', {
     method: 'POST',
     body: JSON.stringify(payload),
+  }, token)
+}
+
+export async function summarizeNotesWithAi(
+  token: string,
+  notes: Array<{
+    questionId: number
+    topic?: string
+    session?: string
+    text: string
+  }>,
+): Promise<{ report: AiNotesStudyReport }> {
+  return apiRequest('/ai/summarize-notes', {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
   }, token)
 }
 

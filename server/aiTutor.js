@@ -42,6 +42,32 @@ const AI_TUTOR_SCHEMA = {
   },
 }
 
+const AI_NOTES_SUMMARY_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['topics', 'overallReviewPlan'],
+  properties: {
+    topics: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['topic', 'knowledgePoints', 'commonMistakes', 'keyFormulas', 'memoryHooks', 'relatedQuestionIds', 'reviewActions'],
+        properties: {
+          topic: { type: 'string' },
+          knowledgePoints: { type: 'array', items: { type: 'string' } },
+          commonMistakes: { type: 'array', items: { type: 'string' } },
+          keyFormulas: { type: 'array', items: { type: 'string' } },
+          memoryHooks: { type: 'array', items: { type: 'string' } },
+          relatedQuestionIds: { type: 'array', items: { type: 'number' } },
+          reviewActions: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    },
+    overallReviewPlan: { type: 'array', items: { type: 'string' } },
+  },
+}
+
 function truncate(value, maxLength) {
   return String(value || '').trim().slice(0, maxLength)
 }
@@ -72,6 +98,16 @@ function tutorOutputContract() {
   ].join('\n')
 }
 
+function notesOutputContract() {
+  return [
+    'Return one valid JSON object only. Do not include markdown fences or extra commentary.',
+    'The JSON object must contain topics and overallReviewPlan.',
+    'Each topic item must contain topic, knowledgePoints, commonMistakes, keyFormulas, memoryHooks, relatedQuestionIds, and reviewActions.',
+    'Group notes under CFA Level I major topics. If a note topic is unclear, infer the best CFA Level I topic from the note text.',
+    'Do not invent formulas when the notes do not support one; return an empty keyFormulas array for that topic instead.',
+  ].join('\n')
+}
+
 function tutorInstructions() {
   return [
     'You are CFA Sprint AI Tutor for CFA Level I candidates.',
@@ -83,12 +119,37 @@ function tutorInstructions() {
   ].join('\n')
 }
 
+function notesSummaryInstructions() {
+  return [
+    'You are CFA Sprint AI Tutor summarizing CFA Level I study notes.',
+    'Turn a candidate\'s saved question notes into a structured study report.',
+    'Organize by CFA Level I major topic, then extract knowledge points, formulas, common mistakes, memory hooks, and review actions.',
+    'Use concise exam-prep language. Preserve uncertainty instead of inventing unsupported facts.',
+    'Do not reproduce or distribute real CFA exam questions, leaked exam content, or paid question-bank originals.',
+  ].join('\n')
+}
+
 function tutorInput({ question, selected, userQuestion }) {
   return [
     questionText(question),
     `Selected answer: ${selected}`,
     `Student question: ${truncate(userQuestion, 500) || 'Explain why the answer is correct and why my choice is wrong.'}`,
   ].join('\n\n')
+}
+
+function notesSummaryInput(notes) {
+  return notes
+    .slice(0, 80)
+    .map((note, index) =>
+      [
+        `Note ${index + 1}`,
+        `Question #${Number(note.questionId) || 0}`,
+        `Topic: ${truncate(note.topic, 120) || 'Unknown'}`,
+        `Session: ${truncate(note.session, 160) || 'Not specified'}`,
+        `Text: ${truncate(note.text, 1000)}`,
+      ].join('\n'),
+    )
+    .join('\n\n')
 }
 
 export function buildAiTutorRequest({ model, question, selected, userQuestion = '' }) {
@@ -108,6 +169,23 @@ export function buildAiTutorRequest({ model, question, selected, userQuestion = 
   }
 }
 
+export function buildAiNotesSummaryRequest({ model, notes }) {
+  return {
+    model,
+    max_output_tokens: 1800,
+    instructions: notesSummaryInstructions(),
+    input: notesSummaryInput(notes),
+    text: {
+      format: {
+        type: 'json_schema',
+        name: 'cfa_notes_study_report',
+        strict: true,
+        schema: AI_NOTES_SUMMARY_SCHEMA,
+      },
+    },
+  }
+}
+
 export function buildDeepSeekTutorRequest({ model, question, selected, userQuestion = '' }) {
   return {
     model,
@@ -122,6 +200,25 @@ export function buildDeepSeekTutorRequest({ model, question, selected, userQuest
       {
         role: 'user',
         content: tutorInput({ question, selected, userQuestion }),
+      },
+    ],
+  }
+}
+
+export function buildDeepSeekNotesSummaryRequest({ model, notes }) {
+  return {
+    model,
+    temperature: 0.2,
+    max_tokens: 1800,
+    response_format: { type: 'json_object' },
+    messages: [
+      {
+        role: 'system',
+        content: `${notesSummaryInstructions()}\n\n${notesOutputContract()}`,
+      },
+      {
+        role: 'user',
+        content: notesSummaryInput(notes),
       },
     ],
   }
@@ -184,6 +281,23 @@ async function requestOpenAiTutorExplanation({ apiKey, model, question, selected
   return parseAiTutorResponse(body)
 }
 
+async function requestOpenAiNotesSummary({ apiKey, model, notes, baseUrl }) {
+  const response = await fetch(`${baseUrl}/responses`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(buildAiNotesSummaryRequest({ model, notes })),
+  })
+
+  const body = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new Error(body?.error?.message || 'OpenAI request failed')
+  }
+  return parseAiTutorResponse(body)
+}
+
 async function requestDeepSeekTutorExplanation({ apiKey, model, question, selected, userQuestion, baseUrl }) {
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
@@ -192,6 +306,23 @@ async function requestDeepSeekTutorExplanation({ apiKey, model, question, select
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify(buildDeepSeekTutorRequest({ model, question, selected, userQuestion })),
+  })
+
+  const body = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new Error(body?.error?.message || 'DeepSeek request failed')
+  }
+  return parseDeepSeekTutorResponse(body)
+}
+
+async function requestDeepSeekNotesSummary({ apiKey, model, notes, baseUrl }) {
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(buildDeepSeekNotesSummaryRequest({ model, notes })),
   })
 
   const body = await response.json().catch(() => null)
@@ -220,5 +351,23 @@ export async function requestAiTutorExplanation({ provider, question, selected, 
     question,
     selected,
     userQuestion,
+  })
+}
+
+export async function requestAiNotesSummary({ provider, notes }) {
+  if (provider.name === 'deepseek') {
+    return requestDeepSeekNotesSummary({
+      apiKey: provider.apiKey,
+      model: provider.model,
+      baseUrl: provider.baseUrl,
+      notes,
+    })
+  }
+
+  return requestOpenAiNotesSummary({
+    apiKey: provider.apiKey,
+    model: provider.model,
+    baseUrl: provider.baseUrl,
+    notes,
   })
 }

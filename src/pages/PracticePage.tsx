@@ -688,10 +688,13 @@ export default function PracticePage() {
             rows={4}
           />
           <div className="practice-notes-meta">
-            <span>
-              {noteSavedMessage || `${draftNote.length} / 1000`}
-            </span>
+            <span>{`${draftNote.length} / 1000`}</span>
             <div className="practice-notes-actions">
+              {noteSavedMessage ? (
+                <span className="practice-note-status" aria-live="polite">
+                  {noteSavedMessage}
+                </span>
+              ) : null}
               <button
                 type="button"
                 className="practice-note-save"

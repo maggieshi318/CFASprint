@@ -42,7 +42,7 @@ import {
   resolveQuestionsPack,
 } from './bankAccess.js'
 import { extractPackId } from './tagUtils.js'
-import { getAiTutorProviderConfig, requestAiTutorExplanation } from './aiTutor.js'
+import { getAiTutorProviderConfig, requestAiNotesSummary, requestAiTutorExplanation } from './aiTutor.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -274,15 +274,6 @@ db.prepare("UPDATE users SET exam_date = '2026-11-11' WHERE email IN (?, ?)").ru
 db.prepare("UPDATE users SET exam_date = '2026-11-11' WHERE exam_date IS NULL OR exam_date = ''").run()
 db.prepare(
   "UPDATE users SET referral_code = lower(hex(randomblob(4))) WHERE referral_code IS NULL OR referral_code = ''",
-).run()
-db.prepare(
-  `
-  UPDATE users
-  SET plan = 'free',
-      subscription_status = 'inactive',
-      subscription_expires_at = NULL
-  WHERE lower(email) = 'candidate@example.com'
-`,
 ).run()
 
 db.prepare('UPDATE users SET email_verified = 1 WHERE email IN (?, ?)').run(
@@ -1183,6 +1174,38 @@ app.post('/api/ai/explain-question', authMiddleware, async (req, res) => {
     return res.json({ explanation, remainingToday: dailyLimit > 0 ? Math.max(dailyLimit - usedToday - 1, 0) : null })
   } catch (error) {
     return res.status(502).json({ message: error.message || 'AI Tutor request failed' })
+  }
+})
+
+app.post('/api/ai/summarize-notes', authMiddleware, async (req, res) => {
+  const aiProvider = getAiTutorProviderConfig(config)
+  if (!aiProvider.apiKey) {
+    return res.status(503).json({ message: 'AI Tutor is not configured yet.' })
+  }
+
+  const rawNotes = Array.isArray(req.body?.notes) ? req.body.notes : []
+  const notes = rawNotes
+    .map((note) => ({
+      questionId: Number(note?.questionId) || 0,
+      topic: String(note?.topic || '').trim().slice(0, 120),
+      session: String(note?.session || '').trim().slice(0, 160),
+      text: String(note?.text || '').trim().slice(0, 1000),
+    }))
+    .filter((note) => note.text)
+    .slice(0, 80)
+
+  if (notes.length === 0) {
+    return res.status(400).json({ message: 'Saved notes are required to generate a study report.' })
+  }
+
+  try {
+    const report = await requestAiNotesSummary({
+      provider: aiProvider,
+      notes,
+    })
+    return res.json({ report })
+  } catch (error) {
+    return res.status(502).json({ message: error.message || 'AI notes report request failed' })
   }
 })
 

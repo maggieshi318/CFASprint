@@ -2629,6 +2629,126 @@ textarea {
   margin: 0.35rem 0 0.2rem;
 }
 
+.qb-notes-title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.qb-notes-report-btn {
+  min-height: 38px;
+  border: 0;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #fff;
+  padding: 0 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.qb-notes-report-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.qb-notes-report-error {
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 0.9rem;
+}
+
+.qb-notes-report {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: #eff6ff;
+}
+
+.qb-notes-report-head {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.qb-notes-report-head span {
+  color: #2563eb;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.qb-notes-report-head strong {
+  color: #1e3a8a;
+  font-size: 1rem;
+}
+
+.qb-notes-report-grid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.qb-notes-report-topic {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #fff;
+  padding: 0.9rem;
+}
+
+.qb-notes-report-topic h3,
+.qb-notes-overall h3 {
+  margin: 0;
+  color: #1e3a8a;
+  font-size: 1rem;
+}
+
+.qb-notes-report-section {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.qb-notes-report-section h4 {
+  margin: 0;
+  color: #1e40af;
+  font-size: 0.85rem;
+}
+
+.qb-notes-report-section p,
+.qb-notes-related,
+.qb-notes-overall li,
+.qb-notes-report-section li {
+  color: #334155;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.qb-notes-report-section p,
+.qb-notes-related {
+  margin: 0;
+}
+
+.qb-notes-report-section ul,
+.qb-notes-overall ol {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.qb-notes-overall {
+  display: grid;
+  gap: 0.5rem;
+  border-top: 1px solid #bfdbfe;
+  padding-top: 0.85rem;
+}
+
 .qb-notes-list {
   display: grid;
   gap: 0.75rem;
@@ -4675,7 +4795,14 @@ textarea {
 
 .practice-notes-actions {
   display: flex;
+  align-items: center;
   gap: 0.45rem;
+}
+
+.practice-note-status {
+  color: #16a34a;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .practice-note-save,

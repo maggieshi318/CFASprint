@@ -2,7 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildAiTutorRequest,
+  buildAiNotesSummaryRequest,
   buildDeepSeekTutorRequest,
+  buildDeepSeekNotesSummaryRequest,
   getAiTutorProviderConfig,
   parseDeepSeekTutorResponse,
 } from './aiTutor.js'
@@ -109,4 +111,50 @@ test('selects DeepSeek provider config when requested', () => {
   assert.equal(provider.apiKey, 'test-key')
   assert.equal(provider.model, 'deepseek-chat')
   assert.equal(provider.baseUrl, 'https://api.deepseek.com')
+})
+
+test('builds a structured notes summary request grouped by CFA topic', () => {
+  const request = buildAiNotesSummaryRequest({
+    model: 'test-model',
+    notes: [
+      {
+        questionId: 42,
+        topic: 'FSA',
+        session: 'Financial Statement Analysis',
+        text: 'Capitalized expenses increase current assets and profit.',
+      },
+      {
+        questionId: 77,
+        topic: 'Fixed Income',
+        session: 'Fixed Income',
+        text: 'Duration estimates price sensitivity to yield changes.',
+      },
+    ],
+  })
+
+  assert.equal(request.model, 'test-model')
+  assert.match(request.instructions, /CFA Level I study notes/i)
+  assert.match(request.input, /Question #42/)
+  assert.match(request.input, /Capitalized expenses/)
+  assert.equal(request.text.format.type, 'json_schema')
+  assert.equal(request.text.format.strict, true)
+  assert.deepEqual(request.text.format.schema.required, ['topics', 'overallReviewPlan'])
+})
+
+test('builds a DeepSeek notes summary request that asks for valid JSON', () => {
+  const request = buildDeepSeekNotesSummaryRequest({
+    model: 'deepseek-chat',
+    notes: [
+      {
+        questionId: 42,
+        topic: 'FSA',
+        text: 'Inventory write-downs reduce assets and profit.',
+      },
+    ],
+  })
+
+  assert.equal(request.response_format.type, 'json_object')
+  assert.match(request.messages[0].content, /valid JSON object/i)
+  assert.match(request.messages[0].content, /topics/)
+  assert.match(request.messages[1].content, /Inventory write-downs/)
 })
