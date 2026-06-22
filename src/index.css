@@ -2674,11 +2674,14 @@ textarea {
 }
 
 .qb-notes-report-head {
-  display: grid;
-  gap: 0.2rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
 }
 
 .qb-notes-report-head span {
+  display: block;
   color: #2563eb;
   font-size: 0.78rem;
   font-weight: 800;
@@ -2686,8 +2689,20 @@ textarea {
 }
 
 .qb-notes-report-head strong {
+  display: block;
   color: #1e3a8a;
   font-size: 1rem;
+}
+
+.qb-notes-print-btn {
+  min-height: 34px;
+  border: 1px solid #93c5fd;
+  border-radius: 8px;
+  background: #fff;
+  color: #1d4ed8;
+  padding: 0 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .qb-notes-report-grid {
@@ -5095,5 +5110,57 @@ textarea {
 
   .qb-action-btn {
     min-width: 108px;
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .study-shell,
+  .qb-notes-page {
+    display: block;
+  }
+
+  .study-sidebar,
+  .study-mobile-tabs,
+  .study-back-link,
+  .qb-notes-title-row,
+  .qb-notes-report-error,
+  .qb-notes-list,
+  .qb-notes-print-btn,
+  .qb-notes-page > p {
+    display: none !important;
+  }
+
+  .qb-notes-page {
+    max-width: none;
+    padding: 0;
+    box-shadow: none;
+    border: 0;
+  }
+
+  .qb-notes-report {
+    display: block;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: #fff;
+  }
+
+  .qb-notes-report-head,
+  .qb-notes-report-topic,
+  .qb-notes-overall {
+    break-inside: avoid;
+  }
+
+  .qb-notes-report-grid {
+    display: block;
+  }
+
+  .qb-notes-report-topic {
+    margin: 0 0 16px;
+    border-color: #d1d5db;
   }
 }

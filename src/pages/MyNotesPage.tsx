@@ -34,6 +34,10 @@ export default function MyNotesPage() {
     }
   }
 
+  function handlePrintReport() {
+    window.print()
+  }
+
   return (
     <section className="panel qb-notes-page">
       <div className="qb-notes-head">
@@ -61,8 +65,13 @@ export default function MyNotesPage() {
       {report ? (
         <section className="qb-notes-report" aria-label="AI study report">
           <div className="qb-notes-report-head">
-            <span>AI Study Report</span>
-            <strong>Grouped by CFA Level I topic</strong>
+            <div>
+              <span>AI Study Report</span>
+              <strong>Grouped by CFA Level I topic</strong>
+            </div>
+            <button type="button" className="qb-notes-print-btn" onClick={handlePrintReport}>
+              Print Report
+            </button>
           </div>
           <div className="qb-notes-report-grid">
             {report.topics.map((topic) => (
