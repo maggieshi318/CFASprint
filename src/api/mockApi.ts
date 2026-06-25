@@ -60,6 +60,38 @@ export type AiNotesStudyReport = {
   overallReviewPlan: string[]
 }
 
+export type PracticeNoteRecord = {
+  questionId: number
+  text: string
+  updatedAt: string
+  pack?: string
+  topic?: string
+  session?: string
+}
+
+export type FounderProfile = {
+  userId: number
+  source: string | null
+  examWindow: string | null
+  dailyCheckinWilling: boolean
+  freeTrialFeedbackWilling: boolean
+  activationStartedAt: string | null
+  practiceCompletedAt: string | null
+  aiTutorUsedAt: string | null
+  aiStudyReportGeneratedAt: string | null
+  valueSignalAt: string | null
+  founderOfferSentAt: string | null
+  founderOfferPrice: number | null
+  founderOfferCurrency: string | null
+  founderOfferAcceptedAt: string | null
+  founderOfferRejectedAt: string | null
+  founderOfferRejectionReason: string | null
+  founderOfferFeedback: string | null
+  paidUserAt: string | null
+  adminNotes: string | null
+  stage: string
+}
+
 export type StatsResponse = {
   totalQuestions: number
   completed: number
@@ -297,6 +329,76 @@ export async function summarizeNotesWithAi(
   }, token)
 }
 
+export async function fetchPracticeNotes(token: string): Promise<PracticeNoteRecord[]> {
+  const result = await apiRequest<{ notes: PracticeNoteRecord[] }>('/practice-notes', { method: 'GET' }, token)
+  return result.notes
+}
+
+export async function fetchPracticeNote(token: string, questionId: number): Promise<PracticeNoteRecord | null> {
+  const result = await apiRequest<{ note: PracticeNoteRecord | null }>(
+    `/practice-notes/${questionId}`,
+    { method: 'GET' },
+    token,
+  )
+  return result.note
+}
+
+export async function savePracticeNoteRequest(
+  token: string,
+  payload: {
+    questionId: number
+    text: string
+    pack?: string
+    topic?: string
+    session?: string
+  },
+): Promise<PracticeNoteRecord | null> {
+  const result = await apiRequest<{ note: PracticeNoteRecord | null }>(
+    `/practice-notes/${payload.questionId}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    },
+    token,
+  )
+  return result.note
+}
+
+export async function migratePracticeNotesRequest(
+  token: string,
+  notes: PracticeNoteRecord[],
+): Promise<{ migrated: number }> {
+  return apiRequest(
+    '/practice-notes/migrate',
+    {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    },
+    token,
+  )
+}
+
+export async function updateFounderFunnel(
+  token: string,
+  payload: {
+    source?: string
+    examWindow?: string
+    dailyCheckinWilling?: boolean
+    freeTrialFeedbackWilling?: boolean
+    activationStarted?: boolean
+  },
+): Promise<FounderProfile | null> {
+  const result = await apiRequest<{ founder: FounderProfile | null }>(
+    '/founder-funnel/me',
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+    token,
+  )
+  return result.founder
+}
+
 export async function fetchPricingPlans(): Promise<PricingPlan[]> {
   return apiRequest('/pricing', { method: 'GET' })
 }
@@ -481,6 +583,16 @@ export type AdminAnalytics = {
     candidatesWithSubmittedMocks: number
     avgMockScore: number
     referralRewards: number
+    founderQualified: number
+    activationStarted: number
+    practiceCompleted: number
+    aiTutorUsed: number
+    aiStudyReportGenerated: number
+    valueSignal: number
+    founderOfferSent: number
+    founderOfferAccepted: number
+    founderOfferRejected: number
+    paidUsers: number
   }
   rates: {
     premiumConversionPct: number
@@ -505,6 +617,21 @@ export type AdminAnalytics = {
     id: number
     name: string
     email: string
+    founderStage: string
+    examWindow: string | null
+    dailyCheckinWilling: boolean
+    freeTrialFeedbackWilling: boolean
+    activationStartedAt: string | null
+    aiTutorUsedAt: string | null
+    aiStudyReportGeneratedAt: string | null
+    valueSignalAt: string | null
+    founderOfferPrice: number | null
+    founderOfferCurrency: string | null
+    founderOfferAcceptedAt: string | null
+    founderOfferRejectedAt: string | null
+    founderOfferRejectionReason: string | null
+    founderOfferFeedback: string | null
+    paidUserAt: string | null
     plan: string
     isPremium: boolean
     referredByUserId: number | null
@@ -521,10 +648,31 @@ export type AdminAnalytics = {
     bestMockScore: number | null
     stage: string
   }>
+  founderFunnel: {
+    totals: Record<string, number>
+    candidates: Array<FounderProfile & { id: number; name: string; email: string; createdAt: string | null }>
+  }
 }
 
 export async function fetchAdminAnalytics(token: string): Promise<AdminAnalytics> {
   return apiRequest('/admin/analytics', { method: 'GET' }, token)
+}
+
+export async function adminMarkFounderEvent(
+  token: string,
+  userId: number,
+  payload:
+    | { event: 'founder_offer_sent'; price: number; currency: 'USD' | 'AED' }
+    | { event: 'founder_offer_accepted' | 'founder_offer_rejected' | 'paid_user'; rejectionReason?: string; feedback?: string },
+): Promise<{ founder: FounderProfile | null }> {
+  return apiRequest(
+    `/admin/founder-funnel/${userId}/events`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    token,
+  )
 }
 
 export type InviteCode = {
@@ -536,6 +684,18 @@ export type InviteCode = {
   createdAt: string
   redeemedAt: string | null
   redeemedByEmail: string | null
+}
+
+export async function adminExtendSubscription(
+  token: string,
+  userId: number,
+  days: number,
+): Promise<{ userId: number; name: string; email: string; extendedDays: number; newExpiresAt: string }> {
+  return apiRequest(
+    `/admin/users/${userId}/extend`,
+    { method: 'POST', body: JSON.stringify({ days }) },
+    token,
+  )
 }
 
 export async function fetchInviteCodes(token: string): Promise<InviteCode[]> {
@@ -654,19 +814,4 @@ export async function updateUserSettings(
     '/user/settings',
     {
       method: 'PATCH',
-      body: JSON.stringify(payload),
-    },
-    token,
-  )
-}
-
-export async function fetchMockSessionDetail(
-  token: string,
-  sessionId: number,
-): Promise<
-  MockSession & {
-    topicBreakdown?: Array<{ topic: string; total: number; correct: number; accuracy: number }>
-  }
-> {
-  return apiRequest(`/mock-sessions/${sessionId}`, { method: 'GET' }, token)
-}
+      body: JSON.string

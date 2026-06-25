@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
+  adminExtendSubscription,
+  adminMarkFounderEvent,
   createInviteCode,
   fetchAdminAnalytics,
   fetchInviteCodes,
@@ -20,6 +22,23 @@ const STAGE_LABELS: Record<string, string> = {
   paid: 'Paid access',
 }
 
+const FOUNDER_STAGE_LABELS: Record<string, string> = {
+  unqualified: 'Not qualified',
+  qualified: 'Qualified',
+  activation_started: 'Activation started',
+  practice_completed: 'Practice completed',
+  value_signal: 'Value signal',
+  offer_sent: 'Offer sent',
+  offer_accepted: 'Offer accepted',
+  offer_rejected: 'Offer rejected',
+  paid_user: 'paid_user',
+}
+
+const FOUNDER_OFFERS = {
+  usd49: { label: 'USD 49', price: 49, currency: 'USD' as const },
+  aed179: { label: 'AED 179', price: 179, currency: 'AED' as const },
+}
+
 function shortDate(value: string | null | undefined) {
   if (!value) return '-'
   return value.slice(0, 10)
@@ -31,6 +50,11 @@ export default function AdminAnalyticsPage() {
   const [inviteCodes, setInviteCodes] = useState<InviteCode[]>([])
   const [inviteNote, setInviteNote] = useState('')
   const [creatingInvite, setCreatingInvite] = useState(false)
+  const [updatingFounderUserId, setUpdatingFounderUserId] = useState<number | null>(null)
+  const [founderOfferKey, setFounderOfferKey] = useState<'usd49' | 'aed179'>('usd49')
+  const [extendingUserId, setExtendingUserId] = useState<number | null>(null)
+  const [extendDays, setExtendDays] = useState<Record<number, number>>({})
+  const [extendResult, setExtendResult] = useState<string | null>(null)
 
   useEffect(() => {
     if (!token) return
@@ -48,6 +72,46 @@ export default function AdminAnalyticsPage() {
       await navigator.clipboard?.writeText(result.code)
     } finally {
       setCreatingInvite(false)
+    }
+  }
+
+  async function handleMarkFounderEvent(
+    userId: number,
+    event: 'founder_offer_sent' | 'founder_offer_accepted' | 'founder_offer_rejected' | 'paid_user',
+  ) {
+    if (!token) return
+    setUpdatingFounderUserId(userId)
+    try {
+      if (event === 'founder_offer_sent') {
+        await adminMarkFounderEvent(token, userId, { event, ...FOUNDER_OFFERS[founderOfferKey] })
+      } else if (event === 'founder_offer_rejected') {
+        await adminMarkFounderEvent(token, userId, {
+          event,
+          rejectionReason: 'Needs follow-up',
+          feedback: 'Capture price or benefits feedback in daily review notes.',
+        })
+      } else {
+        await adminMarkFounderEvent(token, userId, { event })
+      }
+      setAnalytics(await fetchAdminAnalytics(token))
+    } finally {
+      setUpdatingFounderUserId(null)
+    }
+  }
+
+  async function handleExtend(userId: number, name: string) {
+    if (!token) return
+    const days = extendDays[userId] ?? 7
+    setExtendingUserId(userId)
+    setExtendResult(null)
+    try {
+      const result = await adminExtendSubscription(token, userId, days)
+      setExtendResult(`✅ ${name}: extended ${days}d → expires ${result.newExpiresAt.slice(0, 10)}`)
+      setAnalytics(await fetchAdminAnalytics(token))
+    } catch (err) {
+      setExtendResult(`❌ Failed to extend ${name}: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setExtendingUserId(null)
     }
   }
 
@@ -168,6 +232,44 @@ export default function AdminAnalyticsPage() {
         </article>
       </div>
 
+      <div className="stats merchant-stats">
+        <article>
+          <h3>{analytics.totals.founderQualified || 0}</h3>
+          <p>Founder qualified</p>
+        </article>
+        <article>
+          <h3>{analytics.totals.aiTutorUsed || 0}</h3>
+          <p>AI Tutor used</p>
+        </article>
+        <article>
+          <h3>{analytics.totals.aiStudyReportGenerated || 0}</h3>
+          <p>AI reports</p>
+        </article>
+        <article>
+          <h3>{analytics.totals.valueSignal || 0}</h3>
+          <p>Value signal</p>
+        </article>
+        <article>
+          <h3>{analytics.totals.paidUsers || 0}</h3>
+          <p>paid_user</p>
+        </article>
+      </div>
+
+      <article className="settings-block">
+        <h3>Founder Program Private Offer</h3>
+        <p className="helper-text">
+          Private Founder offer only. Keep public Pricing unchanged until the founder explicitly approves a public
+          pricing change.
+        </p>
+        <label>
+          Private offer price
+          <select value={founderOfferKey} onChange={(event) => setFounderOfferKey(event.target.value as 'usd49' | 'aed179')}>
+            <option value="usd49">USD 49</option>
+            <option value="aed179">AED 179</option>
+          </select>
+        </label>
+      </article>
+
       <div className="review-grid" style={{ marginTop: '1rem' }}>
         <article>
           <h3>Conversion Funnel</h3>
@@ -226,13 +328,30 @@ export default function AdminAnalyticsPage() {
           Use this table to see where each candidate may drop off: registered only, started practice, hit the free
           limit, completed mocks, or paid.
         </p>
+        {extendResult && (
+          <p
+            style={{
+              padding: '0.5rem 0.75rem',
+              borderRadius: '6px',
+              background: extendResult.startsWith('✅') ? 'var(--color-success-bg, #ecfdf5)' : 'var(--color-error-bg, #fef2f2)',
+              color: extendResult.startsWith('✅') ? 'var(--color-success, #065f46)' : 'var(--color-error, #991b1b)',
+              fontSize: '0.875rem',
+              marginBottom: '0.75rem',
+            }}
+          >
+            {extendResult}
+          </p>
+        )}
         <div className="data-table-wrap">
           <table className="data-table merchant-candidate-table">
             <thead>
               <tr>
                 <th>Candidate</th>
                 <th>Stage</th>
+                <th>Founder</th>
+                <th>AI value</th>
                 <th>Plan</th>
+                <th>Extend Access</th>
                 <th>Answered</th>
                 <th>Accuracy</th>
                 <th>Completion</th>
@@ -252,6 +371,57 @@ export default function AdminAnalyticsPage() {
                   </td>
                   <td>{STAGE_LABELS[candidate.stage] || candidate.stage}</td>
                   <td>
+                    {FOUNDER_STAGE_LABELS[candidate.founderStage] || candidate.founderStage}
+                    <br />
+                    <span className="muted-cell">
+                      {candidate.examWindow || '-'} ·{' '}
+                      {candidate.founderOfferCurrency && candidate.founderOfferPrice
+                        ? `${candidate.founderOfferCurrency} ${candidate.founderOfferPrice}`
+                        : 'no offer'}
+                    </span>
+                    <br />
+                    <button
+                      type="button"
+                      className="link-button"
+                      disabled={updatingFounderUserId === candidate.id}
+                      onClick={() => void handleMarkFounderEvent(candidate.id, 'founder_offer_sent')}
+                    >
+                      Mark offer
+                    </button>
+                    {' / '}
+                    <button
+                      type="button"
+                      className="link-button"
+                      disabled={updatingFounderUserId === candidate.id}
+                      onClick={() => void handleMarkFounderEvent(candidate.id, 'founder_offer_accepted')}
+                    >
+                      Accepted
+                    </button>
+                    {' / '}
+                    <button
+                      type="button"
+                      className="link-button"
+                      disabled={updatingFounderUserId === candidate.id}
+                      onClick={() => void handleMarkFounderEvent(candidate.id, 'founder_offer_rejected')}
+                    >
+                      Rejected
+                    </button>
+                    {' / '}
+                    <button
+                      type="button"
+                      className="link-button"
+                      disabled={updatingFounderUserId === candidate.id}
+                      onClick={() => void handleMarkFounderEvent(candidate.id, 'paid_user')}
+                    >
+                      Mark paid_user
+                    </button>
+                  </td>
+                  <td>
+                    Tutor: {shortDate(candidate.aiTutorUsedAt)}
+                    <br />
+                    Report: {shortDate(candidate.aiStudyReportGeneratedAt)}
+                  </td>
+                  <td>
                     {candidate.isPremium
                       ? candidate.plan === 'trial_monthly'
                         ? '7-Day Trial'
@@ -260,46 +430,6 @@ export default function AdminAnalyticsPage() {
                           : 'Early Bird Full Access'
                       : 'Account Only'}
                   </td>
-                  <td>{candidate.answeredQuestions}</td>
-                  <td>{candidate.accuracy}%</td>
-                  <td>{candidate.completionPct}%</td>
-                  <td>
-                    {candidate.mockSubmitted}/{candidate.mockStarted}
-                  </td>
-                  <td>{candidate.bestMockScore == null ? '-' : `${candidate.bestMockScore}%`}</td>
-                  <td>{shortDate(candidate.lastPracticeAt)}</td>
-                  <td>{shortDate(candidate.createdAt)}</td>
-                </tr>
-              ))}
-              {analytics.candidates.length === 0 ? (
-                <tr>
-                  <td colSpan={10}>No candidates yet.</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </article>
-    </section>
-  )
-}
-
-function TrendCard({ title, series }: { title: string; series: Array<{ day: string; count: number }> }) {
-  const max = Math.max(...series.map((item) => item.count), 1)
-  return (
-    <div className="merchant-trend-card">
-      <h4>{title}</h4>
-      <div className="trend-list">
-        {series.map((item) => (
-          <div key={`${title}-${item.day}`} className="trend-row">
-            <span className="trend-day">{item.day.slice(5)}</span>
-            <div className="trend-bar-wrap">
-              <div className="trend-bar" style={{ width: `${(item.count / max) * 100}%` }} />
-            </div>
-            <span className="trend-count">{item.count}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <input
+                 
