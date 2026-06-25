@@ -4,8 +4,10 @@ import {
   adminMarkFounderEvent,
   createInviteCode,
   fetchAdminAnalytics,
+  fetchAdminUserStudyReports,
   fetchInviteCodes,
   type AdminAnalytics,
+  type AdminStudyReport,
   type InviteCode,
 } from '../api/mockApi'
 import { useAuth } from '../auth/AuthContext'
@@ -55,6 +57,8 @@ export default function AdminAnalyticsPage() {
   const [extendingUserId, setExtendingUserId] = useState<number | null>(null)
   const [extendDays, setExtendDays] = useState<Record<number, number>>({})
   const [extendResult, setExtendResult] = useState<string | null>(null)
+  const [reportModal, setReportModal] = useState<{ name: string; reports: AdminStudyReport[] } | null>(null)
+  const [loadingReportUserId, setLoadingReportUserId] = useState<number | null>(null)
 
   useEffect(() => {
     if (!token) return
@@ -115,6 +119,17 @@ export default function AdminAnalyticsPage() {
     }
   }
 
+  async function handleViewReports(userId: number, name: string) {
+    if (!token) return
+    setLoadingReportUserId(userId)
+    try {
+      const reports = await fetchAdminUserStudyReports(token, userId)
+      setReportModal({ name, reports })
+    } finally {
+      setLoadingReportUserId(null)
+    }
+  }
+
   if (!analytics) {
     return <section className="panel">Loading merchant analytics...</section>
   }
@@ -127,6 +142,67 @@ export default function AdminAnalyticsPage() {
 
   return (
     <section className="panel merchant-dashboard">
+      {reportModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+            zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+            padding: '2rem 1rem', overflowY: 'auto',
+          }}
+          onClick={() => setReportModal(null)}
+        >
+          <div
+            style={{
+              background: 'var(--color-surface, #fff)', borderRadius: '10px',
+              padding: '1.5rem', maxWidth: '720px', width: '100%',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.18)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0 }}>AI Study Reports — {reportModal.name}</h3>
+              <button type="button" className="link-button" onClick={() => setReportModal(null)}>✕ Close</button>
+            </div>
+            {reportModal.reports.length === 0 ? (
+              <p className="helper-text">No reports generated yet.</p>
+            ) : (
+              reportModal.reports.map((r, i) => (
+                <details key={r.id} open={i === 0} style={{ marginBottom: '1rem', border: '1px solid var(--color-border, #e5e7eb)', borderRadius: '6px', padding: '0.75rem' }}>
+                  <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
+                    Report #{reportModal.reports.length - i} — {r.createdAt.slice(0, 10)} ({r.notesCount} notes)
+                  </summary>
+                  {r.report ? (
+                    <div style={{ marginTop: '0.75rem' }}>
+                      {r.report.topics.map((topic) => (
+                        <div key={topic.topic} style={{ marginBottom: '0.75rem' }}>
+                          <strong>{topic.topic}</strong>
+                          {topic.knowledgePoints.length > 0 && (
+                            <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem' }}>
+                              <em>Key points:</em> {topic.knowledgePoints.join(' · ')}
+                            </p>
+                          )}
+                          {topic.reviewActions.length > 0 && (
+                            <p style={{ margin: '0.2rem 0 0', fontSize: '0.875rem', color: 'var(--color-muted)' }}>
+                              <em>Actions:</em> {topic.reviewActions.join(' · ')}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                      {r.report.overallReviewPlan.length > 0 && (
+                        <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: 'var(--color-bg, #f9fafb)', borderRadius: '4px', fontSize: '0.875rem' }}>
+                          <strong>Overall plan:</strong> {r.report.overallReviewPlan.join(' → ')}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="helper-text" style={{ marginTop: '0.5rem' }}>Report data unavailable.</p>
+                  )}
+                </details>
+              ))
+            )}
+          </div>
+        </div>
+      )}
       <h2>Data Analytics</h2>
       <p className="meta">
         Live data from registered candidates, practice submissions, payment status, and mock exam records.
@@ -420,6 +496,19 @@ export default function AdminAnalyticsPage() {
                     Tutor: {shortDate(candidate.aiTutorUsedAt)}
                     <br />
                     Report: {shortDate(candidate.aiStudyReportGeneratedAt)}
+                    {candidate.aiStudyReportGeneratedAt && (
+                      <>
+                        <br />
+                        <button
+                          type="button"
+                          className="link-button"
+                          disabled={loadingReportUserId === candidate.id}
+                          onClick={() => void handleViewReports(candidate.id, candidate.name)}
+                        >
+                          {loadingReportUserId === candidate.id ? '...' : 'View reports'}
+                        </button>
+                      </>
+                    )}
                   </td>
                   <td>
                     {candidate.isPremium
@@ -432,4 +521,65 @@ export default function AdminAnalyticsPage() {
                   </td>
                   <td style={{ whiteSpace: 'nowrap' }}>
                     <input
-                 
+                      type="number"
+                      min={1}
+                      max={90}
+                      value={extendDays[candidate.id] ?? 7}
+                      onChange={(e) =>
+                        setExtendDays((prev) => ({ ...prev, [candidate.id]: Number(e.target.value) }))
+                      }
+                      style={{ width: '3.5rem', marginRight: '0.4rem' }}
+                    />
+                    <span style={{ marginRight: '0.3rem', fontSize: '0.8em', color: 'var(--color-muted)' }}>days</span>
+                    <button
+                      type="button"
+                      className="link-button"
+                      disabled={extendingUserId === candidate.id}
+                      onClick={() => void handleExtend(candidate.id, candidate.name)}
+                    >
+                      {extendingUserId === candidate.id ? '...' : 'Extend'}
+                    </button>
+                  </td>
+                  <td>{candidate.answeredQuestions}</td>
+                  <td>{candidate.accuracy}%</td>
+                  <td>{candidate.completionPct}%</td>
+                  <td>
+                    {candidate.mockSubmitted}/{candidate.mockStarted}
+                  </td>
+                  <td>{candidate.bestMockScore == null ? '-' : `${candidate.bestMockScore}%`}</td>
+                  <td>{shortDate(candidate.lastPracticeAt)}</td>
+                  <td>{shortDate(candidate.createdAt)}</td>
+                </tr>
+              ))}
+              {analytics.candidates.length === 0 ? (
+                <tr>
+                  <td colSpan={12}>No candidates yet.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  )
+}
+
+function TrendCard({ title, series }: { title: string; series: Array<{ day: string; count: number }> }) {
+  const max = Math.max(...series.map((item) => item.count), 1)
+  return (
+    <div className="merchant-trend-card">
+      <h4>{title}</h4>
+      <div className="trend-list">
+        {series.map((item) => (
+          <div key={`${title}-${item.day}`} className="trend-row">
+            <span className="trend-day">{item.day.slice(5)}</span>
+            <div className="trend-bar-wrap">
+              <div className="trend-bar" style={{ width: `${(item.count / max) * 100}%` }} />
+            </div>
+            <span className="trend-count">{item.count}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}

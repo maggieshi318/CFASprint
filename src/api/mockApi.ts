@@ -686,6 +686,26 @@ export type InviteCode = {
   redeemedByEmail: string | null
 }
 
+export type AdminStudyReport = {
+  id: number
+  userId: number
+  notesCount: number
+  report: AiNotesStudyReport | null
+  createdAt: string
+}
+
+export async function fetchAdminUserStudyReports(
+  token: string,
+  userId: number,
+): Promise<AdminStudyReport[]> {
+  const result = await apiRequest<{ reports: AdminStudyReport[] }>(
+    `/admin/users/${userId}/study-reports`,
+    { method: 'GET' },
+    token,
+  )
+  return result.reports
+}
+
 export async function adminExtendSubscription(
   token: string,
   userId: number,
@@ -814,4 +834,19 @@ export async function updateUserSettings(
     '/user/settings',
     {
       method: 'PATCH',
-      body: JSON.string
+      body: JSON.stringify(payload),
+    },
+    token,
+  )
+}
+
+export async function fetchMockSessionDetail(
+  token: string,
+  sessionId: number,
+): Promise<
+  MockSession & {
+    topicBreakdown?: Array<{ topic: string; total: number; correct: number; accuracy: number }>
+  }
+> {
+  return apiRequest(`/mock-sessions/${sessionId}`, { method: 'GET' }, token)
+}

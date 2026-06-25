@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   explainQuestionWithAi,
+  fetchPracticeNote,
   fetchQuestions,
+  savePracticeNoteRequest,
   submitQuestionResult,
   toggleFavoriteRequest,
   type AiTutorExplanation,
@@ -295,7 +297,19 @@ export default function PracticePage() {
     setSavedNote(stored)
     setDraftNote(stored)
     setNoteSavedMessage('')
-  }, [user?.id, current?.id])
+    if (token) {
+      fetchPracticeNote(token, current.id)
+        .then((note) => {
+          const remoteText = note?.text ?? stored
+          setSavedNote(remoteText)
+          setDraftNote(remoteText)
+        })
+        .catch(() => {
+          setSavedNote(stored)
+          setDraftNote(stored)
+        })
+    }
+  }, [token, user?.id, current?.id])
 
   useEffect(() => {
     localStorage.setItem('practice-answer-mode', answerMode)
@@ -386,16 +400,25 @@ export default function PracticePage() {
     setIndex(nextIndex)
   }
 
-  function handleSaveNote() {
+  async function handleSaveNote() {
     if (!user?.id || !current || !noteChanged) return
     const trimmed = draftNote.slice(0, 1000)
-    savePracticeNote(user.id, {
+    const payload = {
       questionId: current.id,
       text: trimmed,
       pack: effectivePack || undefined,
       topic: current.topic,
       session: sessionParam || topicLabel || undefined,
-    })
+    }
+    if (token) {
+      try {
+        await savePracticeNoteRequest(token, payload)
+      } catch {
+        setNoteSavedMessage('Could not save online. Please try again.')
+        return
+      }
+    }
+    savePracticeNote(user.id, payload)
     setSavedNote(trimmed)
     setDraftNote(trimmed)
     setNoteSavedMessage('Saved to My Notes')
@@ -634,6 +657,10 @@ export default function PracticePage() {
                     </dl>
                     <div className="practice-ai-mini-quiz">
                       <h5>Original follow-up question</h5>
+                      <p className="helper-text">
+                        AI Tutor explains concepts and creates original substitute practice. Do not share real CFA exam
+                        questions; trademarks and source rights require compliance review.
+                      </p>
                       <p>{aiTutorExplanation.similarPracticeQuestion.stem}</p>
                       <ol type="A">
                         <li>{aiTutorExplanation.similarPracticeQuestion.options.A}</li>
@@ -698,7 +725,7 @@ export default function PracticePage() {
               <button
                 type="button"
                 className="practice-note-save"
-                onClick={handleSaveNote}
+                onClick={() => void handleSaveNote()}
                 disabled={!noteChanged}
               >
                 Save

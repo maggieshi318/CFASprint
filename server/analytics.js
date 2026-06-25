@@ -1,4 +1,5 @@
 import { hasActiveSubscription } from './billing.js'
+import { getFounderFunnelSnapshot } from './founderFunnel.js'
 
 function dailySeries(db, sql, days = 7) {
   const rows = db.prepare(sql).all(`-${days - 1} days`)
@@ -12,6 +13,8 @@ function dailySeries(db, sql, days = 7) {
 }
 
 export function buildAdminAnalytics(db) {
+  const founderFunnel = getFounderFunnelSnapshot(db)
+  const founderByUserId = new Map(founderFunnel.candidates.map((candidate) => [candidate.id, candidate]))
   const users = db
     .prepare(
       'SELECT id, name, email, role, plan, subscription_status, subscription_expires_at, email_verified, created_at, referred_by_user_id FROM users',
@@ -161,6 +164,21 @@ export function buildAdminAnalytics(db) {
         id: row.id,
         name: row.name,
         email: row.email,
+        founderStage: founderByUserId.get(row.id)?.stage || 'unqualified',
+        examWindow: founderByUserId.get(row.id)?.examWindow || null,
+        dailyCheckinWilling: founderByUserId.get(row.id)?.dailyCheckinWilling || false,
+        freeTrialFeedbackWilling: founderByUserId.get(row.id)?.freeTrialFeedbackWilling || false,
+        activationStartedAt: founderByUserId.get(row.id)?.activationStartedAt || null,
+        aiTutorUsedAt: founderByUserId.get(row.id)?.aiTutorUsedAt || null,
+        aiStudyReportGeneratedAt: founderByUserId.get(row.id)?.aiStudyReportGeneratedAt || null,
+        valueSignalAt: founderByUserId.get(row.id)?.valueSignalAt || null,
+        founderOfferPrice: founderByUserId.get(row.id)?.founderOfferPrice || null,
+        founderOfferCurrency: founderByUserId.get(row.id)?.founderOfferCurrency || null,
+        founderOfferAcceptedAt: founderByUserId.get(row.id)?.founderOfferAcceptedAt || null,
+        founderOfferRejectedAt: founderByUserId.get(row.id)?.founderOfferRejectedAt || null,
+        founderOfferRejectionReason: founderByUserId.get(row.id)?.founderOfferRejectionReason || null,
+        founderOfferFeedback: founderByUserId.get(row.id)?.founderOfferFeedback || null,
+        paidUserAt: founderByUserId.get(row.id)?.paidUserAt || null,
         plan: activePaid ? row.plan : 'free',
         isPremium: activePaid,
         referredByUserId: row.referredByUserId || null,
@@ -181,8 +199,18 @@ export function buildAdminAnalytics(db) {
 
   const funnel = [
     { stage: 'Registered', count: students.length },
+    { stage: 'Founder qualified', count: founderFunnel.totals.qualifiedCandidates },
+    { stage: 'Day 1 activation started', count: founderFunnel.totals.activationStarted },
     { stage: 'Verified email', count: verifiedUsers },
     { stage: 'Started practice', count: candidatesWithSubmissions },
+    { stage: 'Practice completed', count: founderFunnel.totals.practiceCompleted },
+    { stage: 'AI Tutor used', count: founderFunnel.totals.aiTutorUsed },
+    { stage: 'AI Study Report generated', count: founderFunnel.totals.aiStudyReportGenerated },
+    { stage: 'Value signal', count: founderFunnel.totals.valueSignal },
+    { stage: 'Founder offer sent', count: founderFunnel.totals.founderOfferSent },
+    { stage: 'Founder offer accepted', count: founderFunnel.totals.founderOfferAccepted },
+    { stage: 'Founder offer rejected', count: founderFunnel.totals.founderOfferRejected },
+    { stage: 'paid_user', count: founderFunnel.totals.paidUsers },
     { stage: 'Needs AED 9.9 trial payment', count: candidateDetails.filter((item) => !item.isPremium).length },
     { stage: 'Completed a mock', count: candidatesWithSubmittedMocks },
     { stage: 'Trial or Full Access active', count: premiumUsers },
@@ -229,6 +257,16 @@ export function buildAdminAnalytics(db) {
       candidatesWithSubmittedMocks,
       avgMockScore: mockAgg.avgScore ? Math.round(mockAgg.avgScore) : 0,
       referralRewards,
+      founderQualified: founderFunnel.totals.qualifiedCandidates,
+      activationStarted: founderFunnel.totals.activationStarted,
+      practiceCompleted: founderFunnel.totals.practiceCompleted,
+      aiTutorUsed: founderFunnel.totals.aiTutorUsed,
+      aiStudyReportGenerated: founderFunnel.totals.aiStudyReportGenerated,
+      valueSignal: founderFunnel.totals.valueSignal,
+      founderOfferSent: founderFunnel.totals.founderOfferSent,
+      founderOfferAccepted: founderFunnel.totals.founderOfferAccepted,
+      founderOfferRejected: founderFunnel.totals.founderOfferRejected,
+      paidUsers: founderFunnel.totals.paidUsers,
     },
     rates: {
       premiumConversionPct: conversionRate,
@@ -277,6 +315,7 @@ export function buildAdminAnalytics(db) {
       ),
     },
     funnel,
+    founderFunnel,
     topicEngagement,
     candidates: candidateDetails,
   }

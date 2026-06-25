@@ -7,7 +7,7 @@ import { buildNoteSessionPath } from '../utils/practiceNotes'
 
 export default function MyNotesPage() {
   const { token, user } = useAuth()
-  const notes = usePracticeNotes(user?.id)
+  const notes = usePracticeNotes(token, user?.id)
   const [report, setReport] = useState<AiNotesStudyReport | null>(null)
   const [reportLoading, setReportLoading] = useState(false)
   const [reportError, setReportError] = useState('')
@@ -48,6 +48,10 @@ export default function MyNotesPage() {
           <div>
             <h2>My Notes</h2>
             <p className="helper-text">{notes.length} questions with saved notes</p>
+            <p className="helper-text">
+              CFA Institute trademarks and question-source rights require compliance review. Use notes and AI reports
+              for concepts and original practice, not for sharing real exam questions.
+            </p>
           </div>
           <button
             type="button"

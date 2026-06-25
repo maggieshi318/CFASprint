@@ -1,25 +1,43 @@
 import { useEffect, useState } from 'react'
-import { listPracticeNotes, PRACTICE_NOTES_CHANGED, type PracticeNoteRecord } from '../utils/practiceNotes'
+import { fetchPracticeNotes, migratePracticeNotesRequest, type PracticeNoteRecord } from '../api/mockApi'
+import { listPracticeNotes, PRACTICE_NOTES_CHANGED } from '../utils/practiceNotes'
 
-export function usePracticeNotes(userId: string | undefined) {
+function migrationKey(userId: string) {
+  return `practice-notes-migrated:${userId}`
+}
+
+export function usePracticeNotes(token: string | null | undefined, userId: string | undefined) {
   const [notes, setNotes] = useState<PracticeNoteRecord[]>([])
 
   useEffect(() => {
-    if (!userId) {
-      setNotes([])
-      return
+    if (!userId) return
+
+    const refresh = async () => {
+      const legacyNotes = listPracticeNotes(userId)
+      setNotes(legacyNotes)
+      if (!token) return
+
+      try {
+        if (legacyNotes.length > 0 && sessionStorage.getItem(migrationKey(userId)) !== '1') {
+          await migratePracticeNotesRequest(token, legacyNotes)
+          sessionStorage.setItem(migrationKey(userId), '1')
+        }
+        const remoteNotes = await fetchPracticeNotes(token)
+        setNotes(remoteNotes)
+      } catch {
+        setNotes(legacyNotes)
+      }
     }
 
-    const refresh = () => setNotes(listPracticeNotes(userId))
     refresh()
 
     const onChanged = (event: Event) => {
       const detail = (event as CustomEvent<{ userId?: string }>).detail
-      if (!detail?.userId || detail.userId === userId) refresh()
+      if (!detail?.userId || detail.userId === userId) void refresh()
     }
 
     const onStorage = (event: StorageEvent) => {
-      if (!event.key || event.key.includes(userId)) refresh()
+      if (!event.key || event.key.includes(userId)) void refresh()
     }
 
     window.addEventListener(PRACTICE_NOTES_CHANGED, onChanged)
@@ -28,7 +46,7 @@ export function usePracticeNotes(userId: string | undefined) {
       window.removeEventListener(PRACTICE_NOTES_CHANGED, onChanged)
       window.removeEventListener('storage', onStorage)
     }
-  }, [userId])
+  }, [token, userId])
 
-  return notes
+  return userId ? notes : []
 }

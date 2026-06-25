@@ -43,6 +43,19 @@ import {
 } from './bankAccess.js'
 import { extractPackId } from './tagUtils.js'
 import { getAiTutorProviderConfig, requestAiNotesSummary, requestAiTutorExplanation } from './aiTutor.js'
+import {
+  ensurePracticeNotesTables,
+  listPracticeNotes,
+  migratePracticeNotes,
+  readPracticeNote,
+  upsertPracticeNote,
+} from './practiceNotes.js'
+import {
+  ensureFounderFunnelTables,
+  getFounderProfile,
+  markFounderEvent,
+  updateFounderProfile,
+} from './founderFunnel.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -223,7 +236,18 @@ CREATE TABLE IF NOT EXISTS ai_tutor_requests (
   response_json TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS ai_study_reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  notes_count INTEGER NOT NULL DEFAULT 0,
+  report_json TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 `)
+
+ensurePracticeNotesTables(db)
+ensureFounderFunnelTables(db)
 
 function ensureColumn(tableName, columnName, columnSql) {
   const columns = db.prepare(`PRAGMA table_info(${tableName})`).all()
@@ -1025,6 +1049,29 @@ app.post('/api/admin/invite-codes', authMiddleware, adminMiddleware, (req, res) 
   return res.json({ code, inviteCodes: listInviteCodes() })
 })
 
+// Get AI Study Reports for a user (admin only)
+app.get('/api/admin/users/:userId/study-reports', authMiddleware, adminMiddleware, (req, res) => {
+  const userId = Number(req.params.userId)
+  if (!userId) return res.status(400).json({ message: 'Invalid userId' })
+  const rows = db
+    .prepare(
+      `SELECT id, user_id, notes_count, report_json, created_at
+       FROM ai_study_reports
+       WHERE user_id = ?
+       ORDER BY created_at DESC
+       LIMIT 10`,
+    )
+    .all(userId)
+  const reports = rows.map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    notesCount: row.notes_count,
+    report: (() => { try { return JSON.parse(row.report_json) } catch { return null } })(),
+    createdAt: row.created_at,
+  }))
+  return res.json({ reports })
+})
+
 // Extend a user's subscription by N days (admin only)
 app.post('/api/admin/users/:userId/extend', authMiddleware, adminMiddleware, (req, res) => {
   const userId = Number(req.params.userId)
@@ -1073,12 +1120,108 @@ app.post('/api/admin/push/broadcast', authMiddleware, adminMiddleware, async (re
   }
 })
 
+app.patch('/api/admin/founder-funnel/:userId', authMiddleware, adminMiddleware, (req, res) => {
+  const userId = Number(req.params.userId)
+  if (!Number.isInteger(userId)) return res.status(400).json({ message: 'Invalid user id' })
+  const founder = updateFounderProfile(db, userId, {
+    source: req.body?.source,
+    examWindow: req.body?.examWindow,
+    dailyCheckinWilling: req.body?.dailyCheckinWilling,
+    freeTrialFeedbackWilling: req.body?.freeTrialFeedbackWilling,
+    activationStarted: req.body?.activationStarted,
+    adminNotes: req.body?.adminNotes,
+  })
+  return res.json({ founder })
+})
+
+app.post('/api/admin/founder-funnel/:userId/events', authMiddleware, adminMiddleware, (req, res) => {
+  const userId = Number(req.params.userId)
+  if (!Number.isInteger(userId)) return res.status(400).json({ message: 'Invalid user id' })
+  const eventName = String(req.body?.event || '').trim()
+  try {
+    const founder = markFounderEvent(db, userId, eventName, {
+      price: req.body?.price,
+      currency: req.body?.currency,
+      rejectionReason: req.body?.rejectionReason,
+      feedback: req.body?.feedback,
+    })
+    return res.json({ founder })
+  } catch (error) {
+    return res.status(400).json({ message: error.message || 'Unsupported founder funnel event' })
+  }
+})
+
 app.post('/api/push/register', authMiddleware, (req, res) => {
   const token = String(req.body?.token || '').trim()
   const platform = String(req.body?.platform || 'unknown').trim()
   if (!token) return res.status(400).json({ message: 'token is required' })
   registerDeviceToken(db, req.user.id, token, platform)
   return res.json({ registered: true, push: getPushStatus(db) })
+})
+
+app.get('/api/practice-notes', authMiddleware, (req, res) => {
+  return res.json({ notes: listPracticeNotes(db, req.user.id) })
+})
+
+app.get('/api/practice-notes/:questionId', authMiddleware, (req, res) => {
+  const questionId = Number(req.params.questionId)
+  if (!Number.isInteger(questionId)) return res.status(400).json({ message: 'Invalid question id' })
+  return res.json({ note: readPracticeNote(db, req.user.id, questionId) })
+})
+
+app.put('/api/practice-notes/:questionId', authMiddleware, (req, res) => {
+  const questionId = Number(req.params.questionId)
+  if (!Number.isInteger(questionId)) return res.status(400).json({ message: 'Invalid question id' })
+  try {
+    const note = upsertPracticeNote(db, req.user.id, {
+      questionId,
+      text: req.body?.text,
+      pack: req.body?.pack,
+      topic: req.body?.topic,
+      session: req.body?.session,
+    })
+    return res.json({ note })
+  } catch (error) {
+    return res.status(400).json({ message: error.message || 'Could not save note' })
+  }
+})
+
+app.delete('/api/practice-notes/:questionId', authMiddleware, (req, res) => {
+  const questionId = Number(req.params.questionId)
+  if (!Number.isInteger(questionId)) return res.status(400).json({ message: 'Invalid question id' })
+  upsertPracticeNote(db, req.user.id, { questionId, text: '' })
+  return res.json({ deleted: true })
+})
+
+app.post('/api/practice-notes/migrate', authMiddleware, (req, res) => {
+  const result = migratePracticeNotes(db, req.user.id, Array.isArray(req.body?.notes) ? req.body.notes : [])
+  return res.json(result)
+})
+
+app.get('/api/founder-funnel/me', authMiddleware, (req, res) => {
+  return res.json({ founder: getFounderProfile(db, req.user.id) })
+})
+
+app.patch('/api/founder-funnel/me', authMiddleware, (req, res) => {
+  const founder = updateFounderProfile(db, req.user.id, {
+    source: req.body?.source,
+    examWindow: req.body?.examWindow,
+    dailyCheckinWilling: req.body?.dailyCheckinWilling,
+    freeTrialFeedbackWilling: req.body?.freeTrialFeedbackWilling,
+    activationStarted: req.body?.activationStarted,
+    adminNotes: req.body?.adminNotes,
+  })
+  return res.json({ founder })
+})
+
+app.post('/api/founder-funnel/events', authMiddleware, (req, res) => {
+  const eventName = String(req.body?.event || '').trim()
+  try {
+    const founder = markFounderEvent(db, req.user.id, eventName)
+    return res.json({ founder })
+  } catch (error) {
+    return res.status(400).json({ message: error.message || 'Unsupported founder funnel event' })
+  }
 })
 
 app.post('/api/questions/:id/submit', authMiddleware, (req, res) => {
@@ -1104,6 +1247,7 @@ app.post('/api/questions/:id/submit', authMiddleware, (req, res) => {
     DO UPDATE SET selected = excluded.selected, correct = excluded.correct, submitted_at = CURRENT_TIMESTAMP
   `,
   ).run(req.user.id, questionId, selected, correct)
+  markFounderEvent(db, req.user.id, 'practice_completed')
 
   return res.json({
     correct: Boolean(correct),
@@ -1171,6 +1315,7 @@ app.post('/api/ai/explain-question', authMiddleware, async (req, res) => {
       VALUES (?, ?, ?, ?, ?)
     `,
     ).run(req.user.id, questionId, selected, userQuestion || null, JSON.stringify(explanation))
+    markFounderEvent(db, req.user.id, 'ai_tutor_used')
     return res.json({ explanation, remainingToday: dailyLimit > 0 ? Math.max(dailyLimit - usedToday - 1, 0) : null })
   } catch (error) {
     return res.status(502).json({ message: error.message || 'AI Tutor request failed' })
@@ -1203,6 +1348,13 @@ app.post('/api/ai/summarize-notes', authMiddleware, async (req, res) => {
       provider: aiProvider,
       notes,
     })
+    db.prepare(
+      `
+      INSERT INTO ai_study_reports (user_id, notes_count, report_json)
+      VALUES (?, ?, ?)
+    `,
+    ).run(req.user.id, notes.length, JSON.stringify(report))
+    markFounderEvent(db, req.user.id, 'ai_study_report_generated')
     return res.json({ report })
   } catch (error) {
     return res.status(502).json({ message: error.message || 'AI notes report request failed' })

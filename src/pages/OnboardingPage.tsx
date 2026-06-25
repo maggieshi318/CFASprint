@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { updateUserSettings } from '../api/mockApi'
+import { updateFounderFunnel, updateUserSettings } from '../api/mockApi'
 import { useAuth } from '../auth/AuthContext'
 import { copyFor } from '../i18n/copy'
 
@@ -9,9 +9,17 @@ export default function OnboardingPage() {
   const { token, locale, refreshUser } = useAuth()
   const t = copyFor(locale)
   const [step, setStep] = useState(1)
+  const [examWindow, setExamWindow] = useState<'aug_2026' | 'nov_2026'>('nov_2026')
   const [examDate, setExamDate] = useState('2026-11-11')
   const [weeklyGoal, setWeeklyGoal] = useState(50)
+  const [dailyCheckinWilling, setDailyCheckinWilling] = useState(false)
+  const [freeTrialFeedbackWilling, setFreeTrialFeedbackWilling] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  function handleExamWindowChange(value: 'aug_2026' | 'nov_2026') {
+    setExamWindow(value)
+    setExamDate(value === 'aug_2026' ? '2026-08-25' : '2026-11-11')
+  }
 
   async function finish() {
     if (!token) return
@@ -21,6 +29,13 @@ export default function OnboardingPage() {
         examDate,
         weeklyGoal,
         onboardingCompleted: true,
+      })
+      await updateFounderFunnel(token, {
+        source: 'product_onboarding',
+        examWindow,
+        dailyCheckinWilling,
+        freeTrialFeedbackWilling,
+        activationStarted: true,
       })
       await refreshUser(updated)
       navigate('/user/courses')
@@ -38,6 +53,16 @@ export default function OnboardingPage() {
         <article className="settings-block">
           <h3>{t.onboarding.examTitle}</h3>
           <p className="helper-text">{t.onboarding.examHint}</p>
+          <label>
+            Exam window
+            <select
+              value={examWindow}
+              onChange={(event) => handleExamWindowChange(event.target.value as 'aug_2026' | 'nov_2026')}
+            >
+              <option value="aug_2026">August 2026</option>
+              <option value="nov_2026">November 2026</option>
+            </select>
+          </label>
           <label>
             {t.onboarding.examLabel}
             <input type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} />
@@ -83,6 +108,22 @@ export default function OnboardingPage() {
             <li>{t.onboarding.confirmGoal(weeklyGoal)}</li>
             <li>{t.onboarding.confirmUnlock}</li>
           </ul>
+          <label className="practice-radio">
+            <input
+              type="checkbox"
+              checked={dailyCheckinWilling}
+              onChange={(event) => setDailyCheckinWilling(event.target.checked)}
+            />
+            I am willing to do daily check-ins during the Founder trial.
+          </label>
+          <label className="practice-radio">
+            <input
+              type="checkbox"
+              checked={freeTrialFeedbackWilling}
+              onChange={(event) => setFreeTrialFeedbackWilling(event.target.checked)}
+            />
+            I am willing to share feedback after the free trial.
+          </label>
           <div className="actions">
             <button type="button" className="plain-btn" onClick={() => setStep(2)}>
               {t.onboarding.back}

@@ -64,19 +64,25 @@ async function run() {
   assert(Array.isArray(sprintPlan.weeks) && sprintPlan.weeks.length === 8, 'sprint plan should include 8 weeks')
   assert(typeof sprintPlan.weekly.weeklyGoal === 'number', 'sprint plan should include weekly goal progress')
 
+  const plans = await request('/api/pricing')
+  const planIds = plans.map((plan) => plan.planId)
+  assert(planIds.includes('trial_monthly'), 'pricing should include trial plan')
+  assert(planIds.includes('paid_lifetime'), 'pricing should include full access plan')
+  assert(planIds.includes('community_sprint'), 'pricing should include community plan')
+
   const checkout = await request(
     '/api/billing/checkout',
-    { method: 'POST', body: JSON.stringify({ planId: 'pro_quarterly' }) },
+    { method: 'POST', body: JSON.stringify({ planId: 'trial_monthly' }) },
     student.token,
   )
-  assert(checkout.mode === 'dev', 'dev checkout should activate plan without Stripe keys')
-  assert(checkout.user?.isPremium === true, 'checkout should upgrade user to premium')
+  assert(
+    ['payment_required', 'payment_link', 'stripe'].includes(checkout.mode),
+    'checkout should return a configured payment flow status',
+  )
+  assert(typeof checkout.url === 'string' && checkout.url.length > 0, 'checkout should return a payment URL')
 
   const billing = await request('/api/billing/status', {}, student.token)
   assert(billing.isPremium === true, 'billing status should reflect premium plan')
-
-  const plans = await request('/api/pricing')
-  assert(plans.some((plan) => plan.planId === 'pro_quarterly'), 'pricing should include pro plan')
 
   const mock = await request(
     '/api/mock-sessions/start',
@@ -130,12 +136,20 @@ async function run() {
   await request(`/api/admin/questions/${importedQuestion.id}`, { method: 'DELETE' }, admin.token)
 
   const resetEmail = `e2e-${Date.now()}@example.com`
+  const invite = await request(
+    '/api/admin/invite-codes',
+    { method: 'POST', body: JSON.stringify({ note: 'E2E reset user', trialDays: 7 }) },
+    admin.token,
+  )
+  assert(invite.code, 'admin should create an invite code')
+
   const registered = await request('/api/auth/register', {
     method: 'POST',
     body: JSON.stringify({
       name: 'E2E Reset User',
       email: resetEmail,
       password: 'password12345',
+      inviteCode: invite.code,
     }),
   })
   assert(registered.dev?.verifyUrl, 'register should return dev verify url')

@@ -4,8 +4,8 @@ import { usePracticeNotes } from '../hooks/usePracticeNotes'
 import { useStudy } from '../store/StudyContext'
 
 export default function StudySidebarPanels() {
-  const { user } = useAuth()
-  const notes = usePracticeNotes(user?.id)
+  const { token, user } = useAuth()
+  const notes = usePracticeNotes(token, user?.id)
   const { wrong, favorites } = useStudy()
 
   return (
