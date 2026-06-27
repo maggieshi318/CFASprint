@@ -5,6 +5,7 @@ import {
   buildAiNotesSummaryRequest,
   buildDeepSeekTutorRequest,
   buildDeepSeekNotesSummaryRequest,
+  getAiTutorHealth,
   getAiTutorProviderConfig,
   normalizeAiNotesStudyReport,
   parseDeepSeekTutorResponse,
@@ -112,6 +113,26 @@ test('selects DeepSeek provider config when requested', () => {
   assert.equal(provider.apiKey, 'test-key')
   assert.equal(provider.model, 'deepseek-chat')
   assert.equal(provider.baseUrl, 'https://api.deepseek.com')
+})
+
+test('reports AI Tutor configured state without exposing provider keys', () => {
+  assert.deepEqual(
+    getAiTutorHealth({
+      aiProvider: 'openai',
+      openaiApiKey: '',
+      deepseekApiKey: '',
+    }),
+    { provider: 'openai', configured: false },
+  )
+
+  assert.deepEqual(
+    getAiTutorHealth({
+      aiProvider: 'deepseek',
+      openaiApiKey: '',
+      deepseekApiKey: 'secret-value',
+    }),
+    { provider: 'deepseek', configured: true },
+  )
 })
 
 test('builds a structured notes summary request grouped by CFA topic', () => {

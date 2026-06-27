@@ -243,6 +243,7 @@ export async function registerAccount(payload: {
   name: string
   email: string
   password: string
+  phone?: string
   referralCode?: string
   inviteCode: string
 }): Promise<{ token: string; user: User; dev?: { verifyUrl?: string; devToken?: string } }> {

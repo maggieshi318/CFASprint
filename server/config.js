@@ -70,6 +70,8 @@ export const config = {
   deepseekBaseUrl: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
   aiTutorDailyLimit: Number(process.env.AI_TUTOR_DAILY_LIMIT || 20),
   zapierApiKey: process.env.ZAPIER_API_KEY || '',
+  resendApiKey: process.env.RESEND_API_KEY || '',
+  resendFrom: process.env.RESEND_FROM || 'CFA Sprint <noreply@cfasprint.com>',
 }
 
 if (isProduction && config.jwtSecret === 'cfa_sprint_dev_secret') {

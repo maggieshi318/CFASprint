@@ -13,6 +13,7 @@ export default function RegisterPage() {
   const [name, setName] = useState('New Candidate')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [phone, setPhone] = useState('')
   const [inviteCode, setInviteCode] = useState('')
   const [error, setError] = useState('')
   const [verifyHint, setVerifyHint] = useState('')
@@ -24,7 +25,7 @@ export default function RegisterPage() {
     setVerifyHint('')
     setLoading(true)
     try {
-      const result = await registerAccount({ name, email, password, referralCode, inviteCode })
+      const result = await registerAccount({ name, email, password, phone: phone.trim() || undefined, referralCode, inviteCode })
       await login(email, password)
       if (result.dev?.verifyUrl) {
         setVerifyHint(`Dev verify link: ${result.dev.verifyUrl}`)
@@ -83,6 +84,16 @@ export default function RegisterPage() {
         <label>
           Password
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </label>
+        <label>
+          📱 WhatsApp 手机号 <span style={{ fontWeight: 'normal', color: '#666' }}>(选填 — 用于接收备考提醒)</span>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+86 138 0000 0000"
+            autoComplete="tel"
+          />
         </label>
         {error && <div className="error">{error}</div>}
         {verifyHint ? <p className="helper-text">{verifyHint}</p> : null}

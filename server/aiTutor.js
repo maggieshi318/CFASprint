@@ -296,6 +296,14 @@ export function getAiTutorProviderConfig(config) {
   }
 }
 
+export function getAiTutorHealth(config) {
+  const provider = getAiTutorProviderConfig(config)
+  return {
+    provider: provider.name,
+    configured: Boolean(provider.apiKey),
+  }
+}
+
 async function requestOpenAiTutorExplanation({ apiKey, model, question, selected, userQuestion, baseUrl }) {
   const response = await fetch(`${baseUrl}/responses`, {
     method: 'POST',

@@ -32,6 +32,27 @@ CORS_ORIGIN=https://app.yourdomain.com
 JWT_SECRET=replace_with_a_long_random_secret_32_chars_or_more
 ```
 
+Required for AI Tutor and AI Study Report:
+
+```env
+AI_PROVIDER=openai
+OPENAI_API_KEY=YOUR_API_KEY_HERE
+OPENAI_MODEL=gpt-5.5
+AI_TUTOR_DAILY_LIMIT=20
+```
+
+Or, for the DeepSeek-compatible provider:
+
+```env
+AI_PROVIDER=deepseek
+DEEPSEEK_API_KEY=YOUR_DEEPSEEK_API_KEY_HERE
+DEEPSEEK_MODEL=deepseek-chat
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+AI_TUTOR_DAILY_LIMIT=20
+```
+
+Never paste real provider keys into docs, screenshots, logs, or commit history.
+
 Optional, for payments and emails:
 
 ```env
@@ -65,6 +86,12 @@ https://app.yourdomain.com
 ```bash
 docker compose -f docker-compose.public.yml ps
 curl https://app.yourdomain.com/api/health
+```
+
+The health JSON should include `"ai":{"provider":"openai","configured":true}` or the matching configured DeepSeek provider. If `configured` is `false`, update the server `.env` with one provider key and recreate the app container:
+
+```bash
+docker compose -f docker-compose.public.yml up -d --build app
 ```
 
 ## 6. Update

@@ -57,6 +57,12 @@ import {
   markFounderEvent,
   updateFounderProfile,
 } from './founderFunnel.js'
+import {
+  sendWelcomeEmail,
+  sendInactiveEmail,
+  sendFirstPracticeEmail,
+  sendTrialExpiringEmail,
+} from './email.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -69,6 +75,15 @@ if (!fs.existsSync(dataDir)) {
 
 const db = new Database(config.dbPath)
 const app = express()
+
+// Safe migrations — ALTER TABLE ignores errors if column already exists
+;[
+  'ALTER TABLE users ADD COLUMN phone TEXT',
+  'ALTER TABLE users ADD COLUMN email_sent_welcome INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE users ADD COLUMN email_sent_inactive INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE users ADD COLUMN email_sent_first_practice INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE users ADD COLUMN email_sent_trial_expiring INTEGER NOT NULL DEFAULT 0',
+].forEach((sql) => { try { db.exec(sql) } catch { /* column already exists */ } })
 
 const corsOptions = config.corsOrigin
   ? { origin: config.corsOrigin.split(',').map((item) => item.trim()) }
@@ -581,7 +596,7 @@ app.post('/api/auth/login', (req, res) => {
 })
 
 app.post('/api/auth/register', async (req, res) => {
-  const { name, email, password, referralCode, inviteCode } = req.body || {}
+  const { name, email, password, phone, referralCode, inviteCode } = req.body || {}
   if (!name || !email || !password) {
     return res.status(400).json({ message: 'Name, email, and password are required' })
   }
@@ -626,12 +641,12 @@ app.post('/api/auth/register', async (req, res) => {
         INSERT INTO users
           (
             name, email, role, locale, password_hash, referral_code, referred_by_user_id,
-            plan, subscription_status, subscription_expires_at
+            plan, subscription_status, subscription_expires_at, phone
           )
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'trial_monthly', 'active', ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'trial_monthly', 'active', ?, ?)
       `,
       )
-      .run(name, email, 'student', 'en', passwordHash, newReferralCode, referrer?.id || null, expiresAt)
+      .run(name, email, 'student', 'en', passwordHash, newReferralCode, referrer?.id || null, expiresAt, phone?.trim() || null)
 
     db.prepare(
       `
@@ -649,6 +664,10 @@ app.post('/api/auth/register', async (req, res) => {
   const token = issueToken(user)
   const verification = issueAuthAction(db, user, 'verify', config.appUrl, '/verify-email')
   await deliverAuthEmail(user, 'Verify your CFA Sprint email', verification.actionUrl, 'Verify email')
+  // Send welcome email via Resend (non-blocking)
+  sendWelcomeEmail({ name: user.name, email: user.email })
+    .then(() => db.prepare('UPDATE users SET email_sent_welcome = 1 WHERE id = ?').run(user.id))
+    .catch((err) => console.error('[email] welcome failed:', err.message))
   return res.status(201).json({
     token,
     user: serializeUser(user),
@@ -1294,6 +1313,19 @@ app.post('/api/questions/:id/submit', authMiddleware, (req, res) => {
   ).run(req.user.id, questionId, selected, correct)
   markFounderEvent(db, req.user.id, 'practice_completed')
 
+  // First practice email: trigger when user reaches exactly 10 total submissions
+  const { count: totalSubmissions } = db
+    .prepare('SELECT COUNT(*) AS count FROM submissions WHERE user_id = ?')
+    .get(req.user.id)
+  if (totalSubmissions === 10) {
+    const u = db.prepare('SELECT name, email, email_sent_first_practice FROM users WHERE id = ?').get(req.user.id)
+    if (u && !u.email_sent_first_practice) {
+      sendFirstPracticeEmail({ name: u.name, email: u.email })
+        .then(() => db.prepare('UPDATE users SET email_sent_first_practice = 1 WHERE id = ?').run(req.user.id))
+        .catch((err) => console.error('[email] first_practice failed:', err.message))
+    }
+  }
+
   return res.json({
     correct: Boolean(correct),
     correctAnswer: question.answer,
@@ -1800,6 +1832,51 @@ if (config.isProduction && fs.existsSync(config.staticDir)) {
     res.sendFile(path.join(config.staticDir, 'index.html'))
   })
 }
+
+// ─── Scheduled email jobs ────────────────────────────────────────────────────
+
+// Job 1: 24h inactive — runs every hour
+setInterval(() => {
+  try {
+    const inactiveUsers = db.prepare(`
+      SELECT id, name, email FROM users
+      WHERE email_sent_inactive = 0
+        AND email_sent_welcome = 1
+        AND created_at <= datetime('now', '-24 hours')
+        AND id NOT IN (
+          SELECT DISTINCT user_id FROM submissions
+        )
+    `).all()
+    for (const u of inactiveUsers) {
+      sendInactiveEmail({ name: u.name, email: u.email })
+        .then(() => db.prepare('UPDATE users SET email_sent_inactive = 1 WHERE id = ?').run(u.id))
+        .catch((err) => console.error('[email] inactive failed:', err.message))
+    }
+    if (inactiveUsers.length) console.log(`[email] inactive job: sent to ${inactiveUsers.length} user(s)`)
+  } catch (err) {
+    console.error('[email] inactive job error:', err.message)
+  }
+}, 60 * 60 * 1000) // every 1 hour
+
+// Job 2: Trial expiring in 3 days — runs every 6 hours
+setInterval(() => {
+  try {
+    const expiringUsers = db.prepare(`
+      SELECT id, name, email, subscription_expires_at FROM users
+      WHERE email_sent_trial_expiring = 0
+        AND subscription_status = 'active'
+        AND subscription_expires_at BETWEEN datetime('now', '+2 days') AND datetime('now', '+4 days')
+    `).all()
+    for (const u of expiringUsers) {
+      sendTrialExpiringEmail({ name: u.name, email: u.email, expiresAt: u.subscription_expires_at })
+        .then(() => db.prepare('UPDATE users SET email_sent_trial_expiring = 1 WHERE id = ?').run(u.id))
+        .catch((err) => console.error('[email] trial_expiring failed:', err.message))
+    }
+    if (expiringUsers.length) console.log(`[email] trial_expiring job: sent to ${expiringUsers.length} user(s)`)
+  } catch (err) {
+    console.error('[email] trial_expiring job error:', err.message)
+  }
+}, 6 * 60 * 60 * 1000) // every 6 hours
 
 app.listen(config.port, () => {
   // eslint-disable-next-line no-console
