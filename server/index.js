@@ -42,7 +42,7 @@ import {
   resolveQuestionsPack,
 } from './bankAccess.js'
 import { extractPackId } from './tagUtils.js'
-import { getAiTutorProviderConfig, requestAiNotesSummary, requestAiTutorExplanation } from './aiTutor.js'
+import { getAiTutorHealth, getAiTutorProviderConfig, requestAiNotesSummary, requestAiTutorExplanation } from './aiTutor.js'
 import {
   ensurePracticeNotesTables,
   listPracticeNotes,
@@ -52,6 +52,7 @@ import {
 } from './practiceNotes.js'
 import {
   ensureFounderFunnelTables,
+  getFounderFunnelSnapshot,
   getFounderProfile,
   markFounderEvent,
   updateFounderProfile,
@@ -91,6 +92,7 @@ app.get('/api/health', (_req, res) => {
     env: config.nodeEnv,
     mailer: getMailerStatus(),
     stripe: config.stripeSecretKey ? (config.stripeSecretKey.startsWith('sk_live_') ? 'live' : 'test') : 'dev',
+    ai: getAiTutorHealth(config),
     push: getPushStatus(db),
   })
 })
@@ -1148,6 +1150,49 @@ app.post('/api/admin/founder-funnel/:userId/events', authMiddleware, adminMiddle
     return res.json({ founder })
   } catch (error) {
     return res.status(400).json({ message: error.message || 'Unsupported founder funnel event' })
+  }
+})
+
+// Zapier API key middleware — accepts key via header or query param
+function zapierApiKeyMiddleware(req, res, next) {
+  const key = req.headers['x-zapier-api-key'] || req.query.api_key
+  if (!config.zapierApiKey) {
+    return res.status(503).json({ message: 'Zapier integration not configured. Set ZAPIER_API_KEY.' })
+  }
+  if (!key || key !== config.zapierApiKey) {
+    return res.status(401).json({ message: 'Invalid or missing Zapier API key' })
+  }
+  return next()
+}
+
+// Funnel export for Zapier — returns all users with their funnel stage and key timestamps
+app.get('/api/admin/funnel-export', zapierApiKeyMiddleware, (_req, res) => {
+  try {
+    const snapshot = getFounderFunnelSnapshot(db)
+    return res.json({
+      exportedAt: new Date().toISOString(),
+      totals: snapshot.totals,
+      users: snapshot.candidates.map((c) => ({
+        id: c.id,
+        name: c.name,
+        email: c.email,
+        createdAt: c.createdAt,
+        stage: c.stage,
+        examWindow: c.examWindow,
+        dailyCheckinWilling: c.dailyCheckinWilling,
+        freeTrialFeedbackWilling: c.freeTrialFeedbackWilling,
+        activationStartedAt: c.activationStartedAt,
+        practiceCompletedAt: c.practiceCompletedAt,
+        aiTutorUsedAt: c.aiTutorUsedAt,
+        aiStudyReportGeneratedAt: c.aiStudyReportGeneratedAt,
+        valueSignalAt: c.valueSignalAt,
+        founderOfferSentAt: c.founderOfferSentAt,
+        paidUserAt: c.paidUserAt,
+        adminNotes: c.adminNotes,
+      })),
+    })
+  } catch (error) {
+    return res.status(500).json({ message: error.message || 'Export failed' })
   }
 })
 

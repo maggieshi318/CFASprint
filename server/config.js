@@ -69,6 +69,7 @@ export const config = {
   deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
   deepseekBaseUrl: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
   aiTutorDailyLimit: Number(process.env.AI_TUTOR_DAILY_LIMIT || 20),
+  zapierApiKey: process.env.ZAPIER_API_KEY || '',
 }
 
 if (isProduction && config.jwtSecret === 'cfa_sprint_dev_secret') {
