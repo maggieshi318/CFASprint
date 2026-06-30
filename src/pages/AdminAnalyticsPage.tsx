@@ -578,5 +578,81 @@ export default function AdminAnalyticsPage() {
                     <button
                       type="button"
                       className="link-button"
-                      disabled={loadingTopicUserId === candidate.id}
-                      o
+                      onClick={() => void handleViewTopicAccuracy(candidate.id)}
+                    >
+                      {loadingTopicUserId === candidate.id ? '...' : 'Topic accuracy'}
+                    </button>
+                  </td>
+                  <td>
+                    {candidate.isPremium
+                      ? candidate.plan === 'trial_monthly'
+                        ? '7-Day Trial'
+                        : candidate.plan === 'community_sprint'
+                          ? 'Sprint Community Plan'
+                          : 'Early Bird Full Access'
+                      : 'Account Only'}
+                  </td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <input
+                      type="number"
+                      min={1}
+                      max={90}
+                      value={extendDays[candidate.id] ?? 7}
+                      onChange={(e) =>
+                        setExtendDays((prev) => ({ ...prev, [candidate.id]: Number(e.target.value) }))
+                      }
+                      style={{ width: '3.5rem', marginRight: '0.4rem' }}
+                    />
+                    <span style={{ marginRight: '0.3rem', fontSize: '0.8em', color: 'var(--color-muted)' }}>days</span>
+                    <button
+                      type="button"
+                      className="link-button"
+                      disabled={extendingUserId === candidate.id}
+                      onClick={() => void handleExtend(candidate.id, candidate.name)}
+                    >
+                      {extendingUserId === candidate.id ? '...' : 'Extend'}
+                    </button>
+                  </td>
+                  <td>{candidate.answeredQuestions}</td>
+                  <td>{candidate.accuracy}%</td>
+                  <td>{candidate.completionPct}%</td>
+                  <td>
+                    {candidate.mockSubmitted}/{candidate.mockStarted}
+                  </td>
+                  <td>{candidate.bestMockScore == null ? '-' : `${candidate.bestMockScore}%`}</td>
+                  <td>{shortDate(candidate.lastPracticeAt)}</td>
+                  <td>{shortDate(candidate.createdAt)}</td>
+                </tr>
+              ))}
+              {analytics.candidates.length === 0 ? (
+                <tr>
+                  <td colSpan={12}>No candidates yet.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  )
+}
+
+function TrendCard({ title, series }: { title: string; series: Array<{ day: string; count: number }> }) {
+  const max = Math.max(...series.map((item) => item.count), 1)
+  return (
+    <div className="merchant-trend-card">
+      <h4>{title}</h4>
+      <div className="trend-list">
+        {series.map((item) => (
+          <div key={`${title}-${item.day}`} className="trend-row">
+            <span className="trend-day">{item.day.slice(5)}</span>
+            <div className="trend-bar-wrap">
+              <div className="trend-bar" style={{ width: `${(item.count / max) * 100}%` }} />
+            </div>
+            <span className="trend-count">{item.count}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
