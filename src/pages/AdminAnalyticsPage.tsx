@@ -59,6 +59,8 @@ export default function AdminAnalyticsPage() {
   const [extendResult, setExtendResult] = useState<string | null>(null)
   const [reportModal, setReportModal] = useState<{ name: string; reports: AdminStudyReport[] } | null>(null)
   const [loadingReportUserId, setLoadingReportUserId] = useState<number | null>(null)
+  const [topicModal, setTopicModal] = useState<{ name: string; email: string; topics: { topic: string; total: number; correct: number; accuracy: number; weak: boolean }[] } | null>(null)
+  const [loadingTopicUserId, setLoadingTopicUserId] = useState<number | null>(null)
 
   useEffect(() => {
     if (!token) return
@@ -127,6 +129,20 @@ export default function AdminAnalyticsPage() {
       setReportModal({ name, reports })
     } finally {
       setLoadingReportUserId(null)
+    }
+  }
+
+  async function handleViewTopicAccuracy(userId: number) {
+    if (!token) return
+    setLoadingTopicUserId(userId)
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/topic-accuracy`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      setTopicModal(data)
+    } finally {
+      setLoadingTopicUserId(null)
     }
   }
 
@@ -199,6 +215,55 @@ export default function AdminAnalyticsPage() {
                   )}
                 </details>
               ))
+            )}
+          </div>
+        </div>
+      )}
+      {topicModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+            zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+            padding: '2rem 1rem', overflowY: 'auto',
+          }}
+          onClick={() => setTopicModal(null)}
+        >
+          <div
+            style={{
+              background: 'var(--color-surface, #fff)', borderRadius: '10px',
+              padding: '1.5rem', maxWidth: '560px', width: '100%',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.18)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0 }}>Topic Accuracy — {topicModal.name}</h3>
+              <button type="button" className="link-button" onClick={() => setTopicModal(null)}>✕ Close</button>
+            </div>
+            <p className="helper-text" style={{ marginBottom: '1rem' }}>{topicModal.email} · sorted by accuracy (weakest first)</p>
+            {topicModal.topics.length === 0 ? (
+              <p className="helper-text">No submissions yet.</p>
+            ) : (
+              <table className="data-table" style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th>Topic</th>
+                    <th>Questions</th>
+                    <th>Accuracy</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topicModal.topics.map((t) => (
+                    <tr key={t.topic}>
+                      <td>{t.topic}</td>
+                      <td>{t.correct}/{t.total}</td>
+                      <td style={{ fontWeight: 600, color: t.weak ? '#dc2626' : '#059669' }}>{t.accuracy}%</td>
+                      <td>{t.weak ? '⚠️ Weak' : '✓'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
         </div>
@@ -509,77 +574,9 @@ export default function AdminAnalyticsPage() {
                         </button>
                       </>
                     )}
-                  </td>
-                  <td>
-                    {candidate.isPremium
-                      ? candidate.plan === 'trial_monthly'
-                        ? '7-Day Trial'
-                        : candidate.plan === 'community_sprint'
-                          ? 'Sprint Community Plan'
-                          : 'Early Bird Full Access'
-                      : 'Account Only'}
-                  </td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    <input
-                      type="number"
-                      min={1}
-                      max={90}
-                      value={extendDays[candidate.id] ?? 7}
-                      onChange={(e) =>
-                        setExtendDays((prev) => ({ ...prev, [candidate.id]: Number(e.target.value) }))
-                      }
-                      style={{ width: '3.5rem', marginRight: '0.4rem' }}
-                    />
-                    <span style={{ marginRight: '0.3rem', fontSize: '0.8em', color: 'var(--color-muted)' }}>days</span>
+                    <br />
                     <button
                       type="button"
                       className="link-button"
-                      disabled={extendingUserId === candidate.id}
-                      onClick={() => void handleExtend(candidate.id, candidate.name)}
-                    >
-                      {extendingUserId === candidate.id ? '...' : 'Extend'}
-                    </button>
-                  </td>
-                  <td>{candidate.answeredQuestions}</td>
-                  <td>{candidate.accuracy}%</td>
-                  <td>{candidate.completionPct}%</td>
-                  <td>
-                    {candidate.mockSubmitted}/{candidate.mockStarted}
-                  </td>
-                  <td>{candidate.bestMockScore == null ? '-' : `${candidate.bestMockScore}%`}</td>
-                  <td>{shortDate(candidate.lastPracticeAt)}</td>
-                  <td>{shortDate(candidate.createdAt)}</td>
-                </tr>
-              ))}
-              {analytics.candidates.length === 0 ? (
-                <tr>
-                  <td colSpan={12}>No candidates yet.</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </article>
-    </section>
-  )
-}
-
-function TrendCard({ title, series }: { title: string; series: Array<{ day: string; count: number }> }) {
-  const max = Math.max(...series.map((item) => item.count), 1)
-  return (
-    <div className="merchant-trend-card">
-      <h4>{title}</h4>
-      <div className="trend-list">
-        {series.map((item) => (
-          <div key={`${title}-${item.day}`} className="trend-row">
-            <span className="trend-day">{item.day.slice(5)}</span>
-            <div className="trend-bar-wrap">
-              <div className="trend-bar" style={{ width: `${(item.count / max) * 100}%` }} />
-            </div>
-            <span className="trend-count">{item.count}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
+                      disabled={loadingTopicUserId === candidate.id}
+                      o

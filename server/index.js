@@ -58,6 +58,7 @@ import {
   updateFounderProfile,
 } from './founderFunnel.js'
 import {
+  shouldMarkEmailSent,
   sendWelcomeEmail,
   sendInactiveEmail,
   sendFirstPracticeEmail,
@@ -106,11 +107,20 @@ app.get('/api/health', (_req, res) => {
     status: 'ok',
     env: config.nodeEnv,
     mailer: getMailerStatus(),
+    resend: { configured: Boolean(config.resendApiKey) },
     stripe: config.stripeSecretKey ? (config.stripeSecretKey.startsWith('sk_live_') ? 'live' : 'test') : 'dev',
     ai: getAiTutorHealth(config),
     push: getPushStatus(db),
   })
 })
+
+function markEmailSentIfDelivered(result, column, userId, label) {
+  if (shouldMarkEmailSent(result)) {
+    db.prepare(`UPDATE users SET ${column} = 1 WHERE id = ?`).run(userId)
+    return
+  }
+  console.warn(`[email] ${label} not marked sent; Resend did not return a delivery id`)
+}
 
 app.get(['/sw.js', '/registerSW.js'], (_req, res, next) => {
   if (!config.isProduction || !fs.existsSync(config.staticDir)) return next()
@@ -666,7 +676,7 @@ app.post('/api/auth/register', async (req, res) => {
   await deliverAuthEmail(user, 'Verify your CFA Sprint email', verification.actionUrl, 'Verify email')
   // Send welcome email via Resend (non-blocking)
   sendWelcomeEmail({ name: user.name, email: user.email })
-    .then(() => db.prepare('UPDATE users SET email_sent_welcome = 1 WHERE id = ?').run(user.id))
+    .then((result) => markEmailSentIfDelivered(result, 'email_sent_welcome', user.id, 'welcome'))
     .catch((err) => console.error('[email] welcome failed:', err.message))
   return res.status(201).json({
     token,
@@ -1119,6 +1129,32 @@ app.post('/api/admin/users/:userId/extend', authMiddleware, adminMiddleware, (re
   })
 })
 
+// Get per-user topic accuracy breakdown (admin only)
+app.get('/api/admin/users/:userId/topic-accuracy', authMiddleware, adminMiddleware, (req, res) => {
+  const userId = Number(req.params.userId)
+  if (!Number.isInteger(userId)) return res.status(400).json({ message: 'Invalid user id' })
+  const user = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(userId)
+  if (!user) return res.status(404).json({ message: 'User not found' })
+  const rows = db.prepare(`
+    SELECT q.topic,
+           COUNT(*) AS total,
+           SUM(s.correct) AS correct
+    FROM submissions s
+    JOIN questions q ON q.id = s.question_id
+    WHERE s.user_id = ?
+    GROUP BY q.topic
+    ORDER BY (CAST(SUM(s.correct) AS REAL) / COUNT(*)) ASC
+  `).all(userId)
+  const topics = rows.map(r => ({
+    topic: r.topic,
+    total: r.total,
+    correct: r.correct,
+    accuracy: Math.round((r.correct / r.total) * 100),
+    weak: (r.correct / r.total) < 0.5,
+  }))
+  return res.json({ userId, name: user.name, email: user.email, topics })
+})
+
 // Get all users with subscription info (admin only)
 app.get('/api/admin/users', authMiddleware, adminMiddleware, (_req, res) => {
   const users = db.prepare(
@@ -1321,7 +1357,7 @@ app.post('/api/questions/:id/submit', authMiddleware, (req, res) => {
     const u = db.prepare('SELECT name, email, email_sent_first_practice FROM users WHERE id = ?').get(req.user.id)
     if (u && !u.email_sent_first_practice) {
       sendFirstPracticeEmail({ name: u.name, email: u.email })
-        .then(() => db.prepare('UPDATE users SET email_sent_first_practice = 1 WHERE id = ?').run(req.user.id))
+        .then((result) => markEmailSentIfDelivered(result, 'email_sent_first_practice', req.user.id, 'first_practice'))
         .catch((err) => console.error('[email] first_practice failed:', err.message))
     }
   }
@@ -1849,7 +1885,7 @@ setInterval(() => {
     `).all()
     for (const u of inactiveUsers) {
       sendInactiveEmail({ name: u.name, email: u.email })
-        .then(() => db.prepare('UPDATE users SET email_sent_inactive = 1 WHERE id = ?').run(u.id))
+        .then((result) => markEmailSentIfDelivered(result, 'email_sent_inactive', u.id, 'inactive'))
         .catch((err) => console.error('[email] inactive failed:', err.message))
     }
     if (inactiveUsers.length) console.log(`[email] inactive job: sent to ${inactiveUsers.length} user(s)`)
@@ -1861,24 +1897,4 @@ setInterval(() => {
 // Job 2: Trial expiring in 3 days — runs every 6 hours
 setInterval(() => {
   try {
-    const expiringUsers = db.prepare(`
-      SELECT id, name, email, subscription_expires_at FROM users
-      WHERE email_sent_trial_expiring = 0
-        AND subscription_status = 'active'
-        AND subscription_expires_at BETWEEN datetime('now', '+2 days') AND datetime('now', '+4 days')
-    `).all()
-    for (const u of expiringUsers) {
-      sendTrialExpiringEmail({ name: u.name, email: u.email, expiresAt: u.subscription_expires_at })
-        .then(() => db.prepare('UPDATE users SET email_sent_trial_expiring = 1 WHERE id = ?').run(u.id))
-        .catch((err) => console.error('[email] trial_expiring failed:', err.message))
-    }
-    if (expiringUsers.length) console.log(`[email] trial_expiring job: sent to ${expiringUsers.length} user(s)`)
-  } catch (err) {
-    console.error('[email] trial_expiring job error:', err.message)
-  }
-}, 6 * 60 * 60 * 1000) // every 6 hours
-
-app.listen(config.port, () => {
-  // eslint-disable-next-line no-console
-  console.log(`CFA Sprint server running at http://localhost:${config.port} (${config.nodeEnv})`)
-})
+    const expiringUsers = db.prepar

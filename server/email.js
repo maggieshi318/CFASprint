@@ -1,11 +1,11 @@
 /**
- * email.js — CFA Sprint transactional email via Resend
+ * email.js - CFA Sprint transactional email via Resend
  *
  * 4 emails in the activation funnel:
- *   1. welcome         — sent immediately on registration
- *   2. inactive_24h    — sent if user hasn't logged in 24h after registration
- *   3. first_practice  — sent after user completes their first 10 questions
- *   4. trial_expiring  — sent 3 days before trial expires
+ *   1. welcome         - sent immediately on registration
+ *   2. inactive_24h    - sent if user has not logged in 24h after registration
+ *   3. first_practice  - sent after user completes their first 10 questions
+ *   4. trial_expiring  - sent 3 days before trial expires
  */
 
 import { config } from './config.js'
@@ -14,9 +14,100 @@ const RESEND_API = 'https://api.resend.com/emails'
 const FROM = config.resendFrom || 'CFA Sprint <noreply@cfasprint.com>'
 const APP_URL = config.appUrl || 'https://cfasprint.com'
 
+function baseEmail({ title, body, ctaHref, ctaLabel, footer = 'Maggie, CFA Sprint' }) {
+  return `
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1f2937;line-height:1.55">
+  <h2 style="color:#2563eb;margin:0 0 18px">${title}</h2>
+  ${body}
+  <p style="margin:24px 0">
+    <a href="${ctaHref}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block">
+      ${ctaLabel}
+    </a>
+  </p>
+  <p style="color:#6b7280;font-size:14px;margin-top:28px">
+    Questions or feedback? Just reply to this email.<br>
+    ${footer}
+  </p>
+</div>`
+}
+
+export function shouldMarkEmailSent(result) {
+  return Boolean(result?.id)
+}
+
+export function buildWelcomeEmail({ name, email }) {
+  return {
+    to: email,
+    subject: 'Welcome to CFA Sprint - your 7-day trial is active',
+    html: baseEmail({
+      title: `Hi ${name}, welcome to CFA Sprint`,
+      body: `
+  <p>Your account is active and your 7-day trial has started.</p>
+  <p><strong>Recommended first step:</strong><br>
+  Choose your weakest topic, answer 10 practice questions, then open AI Tutor to review the explanations.
+  That is the fastest way to find the gaps that are costing you points.</p>`,
+      ctaHref: APP_URL,
+      ctaLabel: 'Start practicing',
+    }),
+  }
+}
+
+export function buildInactiveEmail({ name, email }) {
+  return {
+    to: email,
+    subject: 'CFA Sprint is ready when you are',
+    html: baseEmail({
+      title: `Hi ${name}`,
+      body: `
+  <p>You created your CFA Sprint account, but you have not started your first practice session yet.</p>
+  <p>Five minutes is enough to complete a short set and see where your current weak areas are.
+  Start with one topic and let AI Tutor explain the questions you miss.</p>`,
+      ctaHref: APP_URL,
+      ctaLabel: 'Start your first set',
+    }),
+  }
+}
+
+export function buildFirstPracticeEmail({ name, email }) {
+  return {
+    to: email,
+    subject: 'Your AI Tutor review is ready',
+    html: baseEmail({
+      title: `Nice work, ${name}`,
+      body: `
+  <p>You completed your first practice set in CFA Sprint.</p>
+  <p>Now review the questions with AI Tutor. It will show where your reasoning broke down,
+  not just which answer choice was correct.</p>`,
+      ctaHref: APP_URL,
+      ctaLabel: 'Review with AI Tutor',
+    }),
+  }
+}
+
+export function buildTrialExpiringEmail({ name, email, expiresAt }) {
+  const expireDate = new Date(expiresAt).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+  })
+
+  return {
+    to: email,
+    subject: `Your CFA Sprint trial ends soon (${expireDate})`,
+    html: baseEmail({
+      title: `Hi ${name}`,
+      body: `
+  <p>Your CFA Sprint trial is scheduled to end on <strong>${expireDate}</strong>.</p>
+  <p>If the practice bank, AI Tutor, or study reports helped you find weak areas faster,
+  you can keep full access through your final exam prep window.</p>`,
+      ctaHref: `${APP_URL}/pricing`,
+      ctaLabel: 'View plans',
+    }),
+  }
+}
+
 async function send({ to, subject, html }) {
   if (!config.resendApiKey) {
-    console.log(`[email] Resend not configured — would send "${subject}" to ${to}`)
+    console.log(`[email] Resend not configured - would send "${subject}" to ${to}`)
     return { skipped: true }
   }
   try {
@@ -33,7 +124,7 @@ async function send({ to, subject, html }) {
       console.error('[email] Resend error:', data)
       return { error: data }
     }
-    console.log(`[email] Sent "${subject}" to ${to} — id: ${data.id}`)
+    console.log(`[email] Sent "${subject}" to ${to} - id: ${data.id}`)
     return { id: data.id }
   } catch (err) {
     console.error('[email] fetch error:', err.message)
@@ -41,104 +132,18 @@ async function send({ to, subject, html }) {
   }
 }
 
-// ─── Email 1: Welcome ────────────────────────────────────────────────────────
-
-export async function sendWelcomeEmail({ name, email }) {
-  return send({
-    to: email,
-    subject: '你的 CFA Sprint 账号已就绪 👋',
-    html: `
-<div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1a1a1a">
-  <h2 style="color:#2563eb">Hi ${name}，欢迎来到 CFA Sprint</h2>
-  <p>你的账号已激活，7天试用现在开始计时。</p>
-  <p><strong>建议第一步：</strong><br>
-  找你最弱的科目，做10道题，然后点开 AI Tutor 看解析——<br>
-  这是整个产品里最有价值的功能。</p>
-  <p style="margin:24px 0">
-    <a href="${APP_URL}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold">
-      开始练习 →
-    </a>
-  </p>
-  <p style="color:#666;font-size:14px">
-    做完告诉我感觉怎么样——直接回复这封邮件就行。<br>
-    — Maggie，CFA Sprint
-  </p>
-</div>`,
-  })
+export async function sendWelcomeEmail(payload) {
+  return send(buildWelcomeEmail(payload))
 }
 
-// ─── Email 2: 24h Inactive ───────────────────────────────────────────────────
-
-export async function sendInactiveEmail({ name, email }) {
-  return send({
-    to: email,
-    subject: '你还没开始——但现在还来得及',
-    html: `
-<div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1a1a1a">
-  <h2>Hi ${name}</h2>
-  <p>你昨天注册了 CFA Sprint，但还没做第一道题。</p>
-  <p>距离8月考试还有几周。<strong>5分钟</strong>就能完成第一组练习，<br>
-  帮你找到你现在最大的知识漏洞。</p>
-  <p style="margin:24px 0">
-    <a href="${APP_URL}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold">
-      做第一组题 →
-    </a>
-  </p>
-  <p style="color:#666;font-size:14px">— Maggie，CFA Sprint</p>
-</div>`,
-  })
+export async function sendInactiveEmail(payload) {
+  return send(buildInactiveEmail(payload))
 }
 
-// ─── Email 3: First Practice Complete ───────────────────────────────────────
-
-export async function sendFirstPracticeEmail({ name, email }) {
-  return send({
-    to: email,
-    subject: '做完了——AI 给你的分析在这里',
-    html: `
-<div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1a1a1a">
-  <h2>Hi ${name}，做完第一组了 🎉</h2>
-  <p>你刚完成了第一次练习。</p>
-  <p>现在去看一下 <strong>AI Tutor 的解析</strong>——<br>
-  它会告诉你每道错题的思路在哪一步出了问题，<br>
-  而不只是告诉你答案是B。</p>
-  <p style="margin:24px 0">
-    <a href="${APP_URL}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold">
-      查看 AI 解析 →
-    </a>
-  </p>
-  <p style="color:#666;font-size:14px">
-    感觉怎么样？直接回复这封邮件告诉我。<br>
-    — Maggie，CFA Sprint
-  </p>
-</div>`,
-  })
+export async function sendFirstPracticeEmail(payload) {
+  return send(buildFirstPracticeEmail(payload))
 }
 
-// ─── Email 4: Trial Expiring in 3 Days ──────────────────────────────────────
-
-export async function sendTrialExpiringEmail({ name, email, expiresAt }) {
-  const expireDate = new Date(expiresAt).toLocaleDateString('zh-CN', {
-    month: 'long', day: 'numeric',
-  })
-  return send({
-    to: email,
-    subject: `你的试用还有3天（到期：${expireDate}）`,
-    html: `
-<div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1a1a1a">
-  <h2>Hi ${name}</h2>
-  <p>你的 CFA Sprint 试用将于 <strong>${expireDate}</strong> 到期。</p>
-  <p>如果这7天的练习对你有帮助，继续用下去——<br>
-  考前这最后几周是提分最快的窗口。</p>
-  <p style="margin:24px 0">
-    <a href="${APP_URL}/pricing" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold">
-      查看升级方案 →
-    </a>
-  </p>
-  <p style="color:#666;font-size:14px">
-    有任何问题直接回复这封邮件。<br>
-    — Maggie，CFA Sprint
-  </p>
-</div>`,
-  })
+export async function sendTrialExpiringEmail(payload) {
+  return send(buildTrialExpiringEmail(payload))
 }

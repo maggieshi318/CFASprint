@@ -4475,6 +4475,44 @@ textarea {
   white-space: pre-line;
 }
 
+.question-stem-text {
+  margin: 0 0 1rem;
+}
+
+.question-stem-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin: 0.75rem 0 1rem;
+}
+
+.question-stem-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  background: #fff;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.question-stem-table th,
+.question-stem-table td {
+  border: 1px solid #d7dde8;
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.question-stem-table th {
+  background: #f8fafc;
+  font-weight: 700;
+  text-align: center;
+}
+
+.question-stem-table td:first-child {
+  font-weight: 500;
+  width: 37%;
+}
+
 .practice-stem-img {
   display: block;
   max-width: 100%;

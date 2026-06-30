@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Answer, MockSession, Question } from '../types'
-import { decodeHtmlEntities, formatQuestionStem } from '../utils/htmlText'
+import QuestionStem from './QuestionStem'
+import { decodeHtmlEntities } from '../utils/htmlText'
 import { formatPrometricTimer } from '../utils/prometricTimer'
 
 type MockExamShellProps = {
@@ -178,7 +179,7 @@ export default function MockExamShell({
         </aside>
 
         <main className="mock-tutorial-content mock-exam-content">
-          <div className="mock-exam-stem-box">{formatQuestionStem(currentQuestion.stem)}</div>
+          <QuestionStem stem={currentQuestion.stem} className="mock-exam-stem-box" />
           <div className="mock-tutorial-mcq-options mock-exam-mcq-options" role="radiogroup" aria-label="Answer options">
             {(Object.keys(currentQuestion.options) as Answer[]).map((optionKey) => {
               const selected = selectedAnswer === optionKey

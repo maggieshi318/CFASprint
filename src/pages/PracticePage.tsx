@@ -13,7 +13,6 @@ import { topicDisplayCount, topicDisplayName } from '../constants/questionBankDi
 import { useStudy } from '../store/StudyContext'
 import type { Answer, Question } from '../types'
 import { formatLanrenAnalysisLines } from '../utils/optionExplanations'
-import { parseQuestionStem } from '../utils/htmlText'
 import { readPracticeNote, savePracticeNote } from '../utils/practiceNotes'
 import {
   clearPracticeSession,
@@ -30,6 +29,7 @@ import { notifyStudyReviewChanged } from '../utils/studyReview'
 import { buildWrongSummary, refreshStudyReview, syncSessionAnswersToServer } from '../utils/studyReviewSync'
 import { useAuth } from '../auth/AuthContext'
 import UpgradeButton from '../components/UpgradeButton'
+import QuestionStem from '../components/QuestionStem'
 import { ApiError } from '../api/client'
 
 type AnswerMode = 'instant' | 'after_submit'
@@ -449,11 +449,6 @@ export default function PracticePage() {
     }
   }
 
-  const stemParts = useMemo(
-    () => (current ? parseQuestionStem(current.stem) : { text: '', images: [] }),
-    [current?.stem],
-  )
-
   const analysisLines = useMemo(() => {
     if (!current || !submitted) return []
     const explanation = currentState?.explanation || current.explanation
@@ -577,10 +572,7 @@ export default function PracticePage() {
           </header>
 
           <div className="practice-q-body">
-            <p className="practice-stem">{stemParts.text}</p>
-            {stemParts.images.map((src) => (
-              <img key={src} src={src} alt="Question figure" className="practice-stem-img" loading="lazy" />
-            ))}
+            <QuestionStem stem={current.stem} className="practice-stem" imageClassName="practice-stem-img" />
             <div className="practice-options">
               {(Object.keys(current.options) as Answer[]).map((key) => (
                 <button
