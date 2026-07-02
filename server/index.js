@@ -671,6 +671,24 @@ app.post('/api/auth/register', async (req, res) => {
     return insert
   })()
   const user = getUserRow(result.lastInsertRowid)
+
+  // Referral reward: extend referrer's subscription by 7 days when a new user registers with their code
+  if (referrer?.id) {
+    try {
+      db.prepare(`
+        UPDATE users
+        SET subscription_expires_at = datetime(
+          COALESCE(subscription_expires_at, datetime('now')),
+          '+7 days'
+        )
+        WHERE id = ? AND subscription_status = 'active'
+      `).run(referrer.id)
+      console.log(`[referral] extended referrer ${referrer.id} by 7 days`)
+    } catch (err) {
+      console.error('[referral] extend referrer failed:', err.message)
+    }
+  }
+
   const token = issueToken(user)
   const verification = issueAuthAction(db, user, 'verify', config.appUrl, '/verify-email')
   await deliverAuthEmail(user, 'Verify your CFA Sprint email', verification.actionUrl, 'Verify email')
@@ -1905,16 +1923,4 @@ setInterval(() => {
     `).all()
     for (const u of expiringUsers) {
       sendTrialExpiringEmail({ name: u.name, email: u.email, expiresAt: u.subscription_expires_at })
-        .then((result) => markEmailSentIfDelivered(result, 'email_sent_trial_expiring', u.id, 'trial_expiring'))
-        .catch((err) => console.error('[email] trial_expiring failed:', err.message))
-    }
-    if (expiringUsers.length) console.log(`[email] trial_expiring job: sent to ${expiringUsers.length} user(s)`)
-  } catch (err) {
-    console.error('[email] trial_expiring job error:', err.message)
-  }
-}, 6 * 60 * 60 * 1000) // every 6 hours
-
-app.listen(config.port, () => {
-  // eslint-disable-next-line no-console
-  console.log(`CFA Sprint server running at http://localhost:${config.port} (${config.nodeEnv})`)
-})
+        .then((result) => markEmailSentIfDeliv
