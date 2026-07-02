@@ -1923,4 +1923,16 @@ setInterval(() => {
     `).all()
     for (const u of expiringUsers) {
       sendTrialExpiringEmail({ name: u.name, email: u.email, expiresAt: u.subscription_expires_at })
-        .then((result) => markEmailSentIfDeliv
+        .then((result) => markEmailSentIfDelivered(result, 'email_sent_trial_expiring', u.id, 'trial_expiring'))
+        .catch((err) => console.error('[email] trial_expiring failed:', err.message))
+    }
+    if (expiringUsers.length) console.log(`[email] trial_expiring job: sent to ${expiringUsers.length} user(s)`)
+  } catch (err) {
+    console.error('[email] trial_expiring job error:', err.message)
+  }
+}, 6 * 60 * 60 * 1000) // every 6 hours
+
+app.listen(config.port, () => {
+  // eslint-disable-next-line no-console
+  console.log(`CFA Sprint server running at http://localhost:${config.port} (${config.nodeEnv})`)
+})
