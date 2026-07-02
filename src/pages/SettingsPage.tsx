@@ -168,6 +168,19 @@ export default function SettingsPage() {
       </article>
 
       <article className="settings-block">
+        <h3>Refer a friend - both get 7 days free</h3>
+        <p className="helper-text">
+          Share your referral link. When a friend signs up using your link, they get a free 7-day trial and you get 7 extra days added automatically.
+        </p>
+        {user?.referralCode ? (
+          <p>
+            Your referral link:{' '}
+            <strong>{`${window.location.origin}/register?ref=${user.referralCode}`}</strong>
+          </p>
+        ) : null}
+      </article>
+
+      <article className="settings-block">
         <h3>Legal</h3>
         <p className="helper-text">
           <Link to="/privacy">Privacy Policy</Link> · <Link to="/terms">Terms of Service</Link>
